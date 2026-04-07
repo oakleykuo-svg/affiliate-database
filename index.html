@@ -634,7 +634,7 @@
         document.body.removeChild(link);
       };
 
-      // 🎓 新手導覽動畫 (Driver.js)
+      // 🎓 新手導覽動畫 (Driver.js) - 主畫面
       const startTour = () => {
         if (!window.driver) return alert('載入導覽套件失敗，請稍後重試。');
         const driverObj = window.driver.js.driver({
@@ -1210,6 +1210,25 @@
         } finally { setIsSaving(false); }
       };
 
+      // 🎓 表單填寫專屬的導覽動畫
+      const startFormTour = () => {
+        if (!window.driver) return alert('載入導覽套件失敗，請稍後重試。');
+        const driverObj = window.driver.js.driver({
+          showProgress: true,
+          nextBtnText: '下一步',
+          prevBtnText: '上一步',
+          doneBtnText: '完成教學',
+          steps: [
+            { element: '#tour-form-social', popover: { title: '1. 社群網址', description: 'IG網址與其他平台「擇一」填寫即可。若有填寫 IG，系統會自動幫您抓取帳號 ID。', side: "bottom", align: 'start' }},
+            { element: '#tour-form-followers', popover: { title: '2. 粉絲數', description: '請直接輸入純數字，例如「150000」。若有多個平台，請填寫粉絲數最高的那個。', side: "bottom", align: 'start' }},
+            { element: '#tour-form-advanced', popover: { title: '3. 進階商業資訊', description: '點擊此區塊可以展開填寫更詳細的保底費用、分潤比率以及開團平台等進階資訊。', side: "top", align: 'start' }},
+            { element: '#tour-form-avatar', popover: { title: '4. 大頭貼網址', description: '請貼上圖片的直連網址。如果不知道怎麼抓取，可以點擊旁邊的「教學」按鈕獲取秘技！', side: "top", align: 'start' }},
+            { element: '#tour-form-save', popover: { title: '5. 儲存檔案', description: '確認資料都填寫完畢後，點擊這裡就可以建立或更新網紅檔案囉！', side: "top", align: 'end' }}
+          ]
+        });
+        driverObj.drive();
+      };
+
       const bookmarkletCode = `javascript:(function()%7Bvar%20html=document.documentElement.innerHTML;var%20match=html.match(/https:%5C/%5C/storage%5C.googleapis%5C.com%5C/ca-avatar%5C/%5B%5E%22'%5Cs%5C)%5D+/);if(match)%7Bvar%20url=match%5B0%5D.replace(/&quot;/g,%22%22);navigator.clipboard.writeText(url).then(function()%7Balert('%E2%9C%85%20%E6%8A%93%E5%8F%96%E6%88%90%E5%8A%9F%EF%BC%81%E7%B6%B2%E5%9D%80%E5%B7%B2%E8%A4%87%E8%A3%BD%E5%88%B0%E5%89%AA%E8%B2%BC%E7%B0%BF%EF%BC%9A%5Cn%5Cn'+url);%7D).catch(function()%7Bprompt('%E8%AB%8B%E6%89%8B%E5%8B%95%E8%A4%87%E8%A3%BD%EF%BC%9A',url);%7D);%7Delse%7Balert('%E2%9D%8C%20%E6%89%BE%E4%B8%8D%E5%88%B0%E9%A0%AD%E8%B2%BC%E7%B6%B2%E5%9D%80');%7D%7D)();`;
 
       return (
@@ -1217,7 +1236,13 @@
           <div className="bg-white/95 backdrop-blur-2xl border border-white rounded-3xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-[0_24px_80px_rgba(0,0,0,0.12)] overflow-hidden animate-zoom-in">
             <div className="sidebar-top-accent" />
             <div className="px-8 py-5 border-b border-slate-100 flex items-center justify-between shrink-0">
-              <h2 className="text-lg font-black grad-brand">{isEditing ? '編輯網紅檔案' : '新增網紅檔案'}</h2>
+              <div className="flex items-center gap-3">
+                <h2 className="text-lg font-black grad-brand">{isEditing ? '編輯網紅檔案' : '新增網紅檔案'}</h2>
+                {/* 🎓 表單內的教學按鈕 */}
+                <button type="button" onClick={startFormTour} className="flex items-center gap-1.5 px-3 py-1.5 bg-brand/10 hover:bg-brand/20 text-brand rounded-full text-xs font-bold transition-colors">
+                  <Icon name="help" size={14} /> 填寫教學
+                </button>
+              </div>
               <button type="button" onClick={onClose} className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-full transition-colors"><Icon name="x" size={18} /></button>
             </div>
 
@@ -1227,39 +1252,47 @@
                   <div className="flex items-center gap-2 mb-3">
                     <span className="bg-brand/10 text-brand text-xs font-black px-2 py-1 rounded-lg">區塊 A</span><h3 className="font-black text-slate-800">基本資料</h3>
                   </div>
-                  <FormField label="Instagram 網址" hint="💡 與其他社群平台擇一填寫" required colSpan2><input type="text" placeholder="https://instagram.com/..." value={formData.instagram_url} onChange={handleIgChange} className={inputCls} /></FormField>
-                  <FormField label="其他社群平台網址" hint="💡 與Instagram網址擇一填寫" required colSpan2>
-                    <div ref={socialsRef} className="relative mb-3">
-                      <div onClick={() => setShowSocialsDD(!showSocialsDD)} className={`${inputCls} cursor-pointer flex justify-between items-center ${showSocialsDD ? 'ring-2 ring-brand/30 border-brand' : ''}`}>
-                        <span className={Object.keys(otherSocialsObj).length > 0 ? "text-slate-800 font-bold truncate pr-2" : "text-slate-400"}>{Object.keys(otherSocialsObj).length > 0 ? Object.keys(otherSocialsObj).join(', ') : '新增 YouTube, TikTok, Threads...'}</span>
-                        <span className={`text-slate-400 transition-transform ${showSocialsDD ? 'rotate-180' : ''}`}><Icon name="chevdown" size={18} /></span>
+                  
+                  {/* 🎯 錨點 1：社群網址 */}
+                  <div id="tour-form-social" className="space-y-5">
+                    <FormField label="Instagram 網址" hint="💡 與其他社群平台擇一填寫" required colSpan2><input type="text" placeholder="https://instagram.com/..." value={formData.instagram_url} onChange={handleIgChange} className={inputCls} /></FormField>
+                    <FormField label="其他社群平台網址" hint="💡 與Instagram網址擇一填寫" required colSpan2>
+                      <div ref={socialsRef} className="relative mb-3">
+                        <div onClick={() => setShowSocialsDD(!showSocialsDD)} className={`${inputCls} cursor-pointer flex justify-between items-center ${showSocialsDD ? 'ring-2 ring-brand/30 border-brand' : ''}`}>
+                          <span className={Object.keys(otherSocialsObj).length > 0 ? "text-slate-800 font-bold truncate pr-2" : "text-slate-400"}>{Object.keys(otherSocialsObj).length > 0 ? Object.keys(otherSocialsObj).join(', ') : '新增 YouTube, TikTok, Threads...'}</span>
+                          <span className={`text-slate-400 transition-transform ${showSocialsDD ? 'rotate-180' : ''}`}><Icon name="chevdown" size={18} /></span>
+                        </div>
+                        {showSocialsDD && (
+                          <div className="absolute z-20 mt-1 w-full bg-white border border-slate-100 shadow-[0_10px_40px_rgba(0,0,0,0.1)] rounded-2xl p-3 grid grid-cols-2 sm:grid-cols-3 gap-2 animate-slide-down">
+                            {socialOptions.map(opt => {
+                              const checked = otherSocialsObj.hasOwnProperty(opt);
+                              return (
+                                <label key={opt} className={`flex items-center gap-2 text-sm font-bold cursor-pointer p-2.5 rounded-xl transition-all ${checked ? 'bg-brand/10 text-brand' : 'text-slate-600 hover:bg-slate-50'}`}>
+                                  <input type="checkbox" checked={checked} onChange={e => handleSocialCheck(opt, e.target.checked)} className="rounded border-slate-300 text-brand focus:ring-brand h-4 w-4 shrink-0" /><span className="truncate">{opt}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
-                      {showSocialsDD && (
-                        <div className="absolute z-20 mt-1 w-full bg-white border border-slate-100 shadow-[0_10px_40px_rgba(0,0,0,0.1)] rounded-2xl p-3 grid grid-cols-2 sm:grid-cols-3 gap-2 animate-slide-down">
-                          {socialOptions.map(opt => {
-                            const checked = otherSocialsObj.hasOwnProperty(opt);
-                            return (
-                              <label key={opt} className={`flex items-center gap-2 text-sm font-bold cursor-pointer p-2.5 rounded-xl transition-all ${checked ? 'bg-brand/10 text-brand' : 'text-slate-600 hover:bg-slate-50'}`}>
-                                <input type="checkbox" checked={checked} onChange={e => handleSocialCheck(opt, e.target.checked)} className="rounded border-slate-300 text-brand focus:ring-brand h-4 w-4 shrink-0" /><span className="truncate">{opt}</span>
-                              </label>
-                            );
-                          })}
+                      {Object.keys(otherSocialsObj).length > 0 && (
+                        <div className="space-y-2.5 p-4 bg-slate-50 border border-slate-100 rounded-2xl mb-3">
+                          <div className="text-xs font-bold text-slate-400 mb-2 flex items-center gap-1.5"><Icon name="info" size={14} /> 貼上對應平台網址：</div>
+                          {Object.keys(otherSocialsObj).map(opt => (
+                            <div key={opt} className="flex items-center gap-3 animate-fade-in"><div className="w-24 shrink-0 text-xs font-bold text-slate-600 text-right">{opt}</div><input type="text" placeholder="https://..." value={otherSocialsObj[opt]} onChange={e => handleSocialUrl(opt, e.target.value)} className={inputCls} /></div>
+                          ))}
                         </div>
                       )}
-                    </div>
-                    {Object.keys(otherSocialsObj).length > 0 && (
-                      <div className="space-y-2.5 p-4 bg-slate-50 border border-slate-100 rounded-2xl mb-3">
-                        <div className="text-xs font-bold text-slate-400 mb-2 flex items-center gap-1.5"><Icon name="info" size={14} /> 貼上對應平台網址：</div>
-                        {Object.keys(otherSocialsObj).map(opt => (
-                          <div key={opt} className="flex items-center gap-3 animate-fade-in"><div className="w-24 shrink-0 text-xs font-bold text-slate-600 text-right">{opt}</div><input type="text" placeholder="https://..." value={otherSocialsObj[opt]} onChange={e => handleSocialUrl(opt, e.target.value)} className={inputCls} /></div>
-                        ))}
-                      </div>
-                    )}
-                  </FormField>
+                    </FormField>
+                  </div>
+                  
                   <FormField label="額外曝光管道" hint="💡 不同管道網址請直接換行貼上" hintStyle="gray" colSpan2><textarea rows="3" placeholder="💡 例：Line社群、FB私密社團、7-11賣貨便等... 請直接換行貼上不同管道的網址或說明" value={formData.extra_platforms||''} onChange={e => setFormData({...formData, extra_platforms:e.target.value})} className={`${inputCls} resize-none leading-relaxed border-dashed`} /></FormField>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <FormField label="網紅姓名" required><input type="text" value={formData.name} onChange={e => setFormData({...formData, name:e.target.value})} className={inputCls} /></FormField>
-                    <FormField label="粉絲數" hint="💡 填寫最高平台數字" required><input type="text" placeholder="例：150000" value={formData.followers} onChange={e => setFormData({...formData, followers:e.target.value})} className={inputCls} /></FormField>
+                    {/* 🎯 錨點 2：粉絲數 */}
+                    <div id="tour-form-followers" className="w-full">
+                      <FormField label="粉絲數" hint="💡 填寫最高平台數字" required><input type="text" placeholder="例：150000" value={formData.followers} onChange={e => setFormData({...formData, followers:e.target.value})} className={inputCls} /></FormField>
+                    </div>
                   </div>
                   <FormField label="Email 聯絡信箱" colSpan2><input type="text" placeholder="hello@example.com" value={formData.email||''} onChange={e => setFormData({...formData, email:e.target.value})} className={inputCls} /></FormField>
                   <FormField label="內容分類 (複選)" colSpan2>
@@ -1283,7 +1316,8 @@
 
                 <hr className="border-slate-100" />
                 <div>
-                  <button type="button" onClick={() => setShowAdvanced(!showAdvanced)} className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-white border border-slate-100 rounded-2xl transition-all shadow-sm">
+                  {/* 🎯 錨點 3：進階商業資訊 */}
+                  <button id="tour-form-advanced" type="button" onClick={() => setShowAdvanced(!showAdvanced)} className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-white border border-slate-100 rounded-2xl transition-all shadow-sm">
                     <div className="flex items-center gap-3"><span className="bg-slate-200 text-slate-600 text-xs font-black px-2 py-1 rounded-lg">區塊 B</span><span className="font-black text-slate-700">進階商業資訊 (選填)</span></div>
                     <Icon name={showAdvanced ? 'chevup' : 'chevdown'} size={18} className="text-slate-400" />
                   </button>
@@ -1336,19 +1370,22 @@
                       <FormField label="保底費用"><input type="text" value={formData.base_fee||''} onChange={e => setFormData({...formData, base_fee:e.target.value})} className={inputCls} /></FormField>
                       <FormField label="最新更新時間"><input type="text" placeholder="例：2026.03" value={formData.quote_updated_date||''} onChange={e => setFormData({...formData, quote_updated_date:e.target.value})} className={inputCls} /></FormField>
                       
-                      <FormField label="大頭貼網址" colSpan2>
-                        <div className="flex gap-2">
-                          <input type="text" value={formData.avatar_url} onChange={e => setFormData({...formData, avatar_url:e.target.value})} className={`${inputCls} flex-1`} />
-                          <button type="button" onClick={() => setShowAvatarHelp(!showAvatarHelp)} className="px-3 py-2 bg-brand/10 text-brand rounded-xl text-xs font-black flex items-center gap-1 hover:bg-brand/20 transition-colors shrink-0"><Icon name="help" size={13} /> 教學</button>
-                        </div>
-                        {showAvatarHelp && (
-                          <div className="mt-3 p-5 bg-slate-900 text-white rounded-2xl shadow-xl border border-slate-700">
-                            <h4 className="font-bold text-brand mb-1 flex items-center gap-2">🦊 如何抓取 AnyTag 頭貼URL？</h4><p className="text-xs text-amber-300 font-bold mb-3 ml-6 opacity-90">💡 書籤只需安裝一次，之後可永久使用！</p>
-                            <ol className="text-sm space-y-1.5 text-slate-300 ml-5 list-decimal mb-4"><li>隨便把一個不相關的網頁存成瀏覽器書籤。</li><li>編輯該書籤，名稱改為「抓頭貼」，網址替換為下方代碼。</li><li>之後進到 AnyTag 網紅頁面，點擊書籤即可自動複製頭貼 URL！</li></ol>
-                            <button type="button" onClick={() => { navigator.clipboard.writeText(bookmarkletCode).then(() => { alert('✅ 已複製！'); setShowAvatarHelp(false); }); }} className="w-full py-2.5 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-colors" style={{background:'linear-gradient(135deg,#E14f4b,#c75551)'}}><Icon name="copy" size={14} /> 一鍵複製秘技代碼</button>
+                      {/* 🎯 錨點 4：大頭貼網址 */}
+                      <div id="tour-form-avatar" className="md:col-span-2">
+                        <FormField label="大頭貼網址">
+                          <div className="flex gap-2">
+                            <input type="text" value={formData.avatar_url} onChange={e => setFormData({...formData, avatar_url:e.target.value})} className={`${inputCls} flex-1`} />
+                            <button type="button" onClick={() => setShowAvatarHelp(!showAvatarHelp)} className="px-3 py-2 bg-brand/10 text-brand rounded-xl text-xs font-black flex items-center gap-1 hover:bg-brand/20 transition-colors shrink-0"><Icon name="help" size={13} /> 教學</button>
                           </div>
-                        )}
-                      </FormField>
+                          {showAvatarHelp && (
+                            <div className="mt-3 p-5 bg-slate-900 text-white rounded-2xl shadow-xl border border-slate-700">
+                              <h4 className="font-bold text-brand mb-1 flex items-center gap-2">🦊 如何抓取 AnyTag 頭貼URL？</h4><p className="text-xs text-amber-300 font-bold mb-3 ml-6 opacity-90">💡 書籤只需安裝一次，之後可永久使用！</p>
+                              <ol className="text-sm space-y-1.5 text-slate-300 ml-5 list-decimal mb-4"><li>隨便把一個不相關的網頁存成瀏覽器書籤。</li><li>編輯該書籤，名稱改為「抓頭貼」，網址替換為下方代碼。</li><li>之後進到 AnyTag 網紅頁面，點擊書籤即可自動複製頭貼 URL！</li></ol>
+                              <button type="button" onClick={() => { navigator.clipboard.writeText(bookmarkletCode).then(() => { alert('✅ 已複製！'); setShowAvatarHelp(false); }); }} className="w-full py-2.5 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-colors" style={{background:'linear-gradient(135deg,#E14f4b,#c75551)'}}><Icon name="copy" size={14} /> 一鍵複製秘技代碼</button>
+                            </div>
+                          )}
+                        </FormField>
+                      </div>
 
                       <FormField label="AnyTag Profile 網址"><input type="text" value={formData.anytag_url||''} onChange={e => setFormData({...formData, anytag_url:e.target.value})} className={inputCls} /></FormField>
                       <FormField label="參考貼文連結"><input type="text" placeholder="https://..." value={formData.reference_link||''} onChange={e => setFormData({...formData, reference_link:e.target.value})} className={inputCls} /></FormField>
@@ -1360,7 +1397,8 @@
 
               <div className="px-8 py-5 border-t border-slate-100 flex justify-end gap-3 bg-white/80 shrink-0">
                 <button type="button" onClick={onClose} disabled={isSaving} className="px-6 py-3 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-2xl transition-all disabled:opacity-50">取消</button>
-                <button type="submit" disabled={isSaving} className="px-8 py-3 text-sm font-black text-white rounded-2xl shadow-glow transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:translate-y-0 disabled:shadow-none" style={{background:'linear-gradient(135deg,#E14f4b 0%,#f0857f 50%,#c75551 100%)'}}>{isSaving ? '處理中...' : (isEditing ? '儲存變更' : '建立檔案')}</button>
+                {/* 🎯 錨點 5：儲存按鈕 */}
+                <button id="tour-form-save" type="submit" disabled={isSaving} className="px-8 py-3 text-sm font-black text-white rounded-2xl shadow-glow transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:translate-y-0 disabled:shadow-none" style={{background:'linear-gradient(135deg,#E14f4b 0%,#f0857f 50%,#c75551 100%)'}}>{isSaving ? '處理中...' : (isEditing ? '儲存變更' : '建立檔案')}</button>
               </div>
             </form>
           </div>
