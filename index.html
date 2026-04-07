@@ -718,7 +718,8 @@
               資料庫總計: <span className="text-slate-800 font-black text-xs">{data.length}</span> 筆
             </div>
 
-            <header className="bg-white/80 backdrop-blur-xl border-b border-slate-100 px-4 lg:px-6 py-3 lg:py-4 flex flex-col lg:flex-row items-center justify-between sticky top-0 z-10 shadow-[0_1px_20px_rgba(0,0,0,0.04)] gap-4">
+            {/* ✅ 修改：把 header 的 z-index 拉高到 z-50 */}
+            <header className="bg-white/80 backdrop-blur-xl border-b border-slate-100 px-4 lg:px-6 py-3 lg:py-4 flex flex-col lg:flex-row items-center justify-between sticky top-0 z-50 shadow-[0_1px_20px_rgba(0,0,0,0.04)] gap-4">
               
               {/* 🏠 LOGO 與 回首頁 */}
               <div className="w-full lg:w-auto flex items-center justify-between shrink-0">
@@ -782,7 +783,8 @@
             </header>
 
             {showAdvancedFilters && (
-              <div className="bg-white/90 backdrop-blur-xl border-b border-slate-100 px-6 py-5 shadow-sm z-0 animate-slide-down">
+              /* ✅ 修改：把進階篩選面板的 z-index 拉高到 z-40，並加上 relative */
+              <div className="relative bg-white/90 backdrop-blur-xl border-b border-slate-100 px-6 py-5 shadow-sm z-40 animate-slide-down">
                 <div className="max-w-6xl flex flex-col gap-6">
                   {/* 第一排：領域與平台 */}
                   <div className="flex flex-col lg:flex-row gap-6">
