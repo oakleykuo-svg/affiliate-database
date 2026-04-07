@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Affiliate Database TW</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- 引入新手導覽動畫套件 Driver.js -->
+  <script src="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.js.iife.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.css"/>
+
   <script>
     tailwind.config = {
       theme: {
@@ -83,20 +88,6 @@
       100% { background-position: 0% 50%; }
     }
 
-    .card-shimmer { position: relative; overflow: hidden; }
-    .card-shimmer::before {
-      content: ''; position: absolute; top: 0; left: -100%; width: 60%; height: 100%;
-      background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.15) 50%, transparent 100%);
-      transition: left 0.5s ease; z-index: 1; pointer-events: none;
-    }
-    .card-shimmer:hover::before { left: 150%; }
-
-    .sidebar-top-accent {
-      background: linear-gradient(90deg, #E14f4b, #f0857f, #c75551);
-      height: 3px; border-radius: 0 0 0 0;
-    }
-
-    /* 登入牆的動態背景 */
     .login-bg {
       background: linear-gradient(-45deg, #E14f4b, #f5a09d, #1e293b, #E14f4b);
       background-size: 400% 400%;
@@ -107,6 +98,21 @@
       50% { background-position: 100% 50%; }
       100% { background-position: 0% 50%; }
     }
+
+    /* 覆寫 Driver.js 預設樣式以符合品牌色 */
+    .driver-popover {
+      border-radius: 16px !important;
+      font-family: 'Plus Jakarta Sans', sans-serif !important;
+      padding: 20px !important;
+      border: 1px solid #f1f5f9 !important;
+      box-shadow: 0 20px 40px -10px rgba(0,0,0,0.1) !important;
+    }
+    .driver-popover-title { color: #E14f4b !important; font-weight: 900 !important; font-size: 16px !important; }
+    .driver-popover-description { color: #64748b !important; font-weight: 500 !important; font-size: 13px !important; line-height: 1.6 !important; }
+    .driver-popover-next-btn, .driver-popover-prev-btn {
+      border-radius: 8px !important; font-weight: bold !important; border: none !important; padding: 6px 12px !important;
+    }
+    .driver-popover-next-btn { background: #E14f4b !important; color: white !important; text-shadow: none !important; }
   </style>
 </head>
 <body class="text-slate-800 antialiased min-h-screen">
@@ -139,9 +145,7 @@
           return (
             <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-8">
               <div className="bg-white p-8 rounded-3xl shadow-xl w-full max-w-3xl border border-red-100">
-                <div className="w-16 h-16 bg-red-50 rounded-full mb-6 flex items-center justify-center border border-red-100">
-                  <span className="text-3xl">🚨</span>
-                </div>
+                <div className="w-16 h-16 bg-red-50 rounded-full mb-6 flex items-center justify-center border border-red-100"><span className="text-3xl">🚨</span></div>
                 <h2 className="text-2xl font-black text-slate-800 mb-2">畫面發生非預期錯誤</h2>
                 <p className="text-slate-500 mb-6 font-medium">很抱歉，系統在處理資料時發生了崩潰。請將下方的錯誤訊息截圖給開發人員：</p>
                 <div className="bg-slate-900 text-red-400 p-5 rounded-2xl overflow-x-auto text-xs font-mono text-left leading-relaxed shadow-inner">
@@ -149,9 +153,7 @@
                   <br/><br/>
                   <span className="text-slate-500">{this.state.errorInfo && this.state.errorInfo.componentStack}</span>
                 </div>
-                <button onClick={() => window.location.reload()} className="mt-8 px-8 py-3 bg-slate-800 text-white rounded-xl font-bold shadow-md hover:bg-slate-700 transition-colors">
-                  重新載入畫面
-                </button>
+                <button onClick={() => window.location.reload()} className="mt-8 px-8 py-3 bg-slate-800 text-white rounded-xl font-bold shadow-md hover:bg-slate-700 transition-colors">重新載入畫面</button>
               </div>
             </div>
           );
@@ -187,52 +189,16 @@
       refresh:   <><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></>
     };
     const Icon = ({ name, size = 16, className = '', stroke = 'currentColor', strokeWidth = 2 }) => (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
-        {ICON_PATHS[name]}
-      </svg>
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>{ICON_PATHS[name]}</svg>
     );
 
-    const IconGoogle = () => (
-      <svg viewBox="0 0 24 24" width="20" height="20">
-        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-      </svg>
-    );
-
-    const IconInstagram = () => (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-        <defs><linearGradient id="ig-g" x1="2" y1="22" x2="22" y2="2"><stop offset="0%" stopColor="#f9ce34"/><stop offset="50%" stopColor="#ee2a7b"/><stop offset="100%" stopColor="#6228d7"/></linearGradient></defs>
-        <rect width="20" height="20" x="2" y="2" rx="5" ry="5" stroke="url(#ig-g)" strokeWidth="2.2"/>
-        <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" stroke="url(#ig-g)" strokeWidth="2.2"/>
-        <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" stroke="url(#ig-g)" strokeWidth="2.2" strokeLinecap="round"/>
-      </svg>
-    );
-    const IconFacebook = () => (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="#1877F2">
-        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-      </svg>
-    );
-    const IconYoutube = () => (
-      <svg width="22" height="16" viewBox="0 0 24 24">
-        <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.5 12 3.5 12 3.5s-7.505 0-9.377.55a3.016 3.016 0 0 0-2.122 2.136C.001 8.086 0 12 0 12s.001 3.914.501 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.55 9.377.55 9.377.55s7.505 0 9.377-.55a3.016 3.016 0 0 0 2.122-2.136C23.999 15.914 24 12 24 12s-.001-3.914-.502-5.814z" fill="#FF0000"/>
-        <path d="M9.545 15.568V8.432L15.818 12l-6.273 3.568z" fill="#FFFFFF"/>
-      </svg>
-    );
-    const IconTikTok = () => (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="#000">
-        <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/>
-      </svg>
-    );
-    const IconThreads = () => (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-black">
-        <path d="M12 22a10 10 0 1 0-8.4-4.6"/><path d="M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/><path d="M16 12v1a4 4 0 0 1-8 0v-1a4 4 0 0 1 8 0Z"/>
-      </svg>
-    );
-    const IconXHS = () => (
-      <span className="bg-[#ff2442] text-white text-[9px] px-1 rounded shadow-sm font-bold tracking-wider leading-none flex items-center justify-center" style={{ height:'18px', width:'max-content' }}>小紅書</span>
-    );
+    const IconGoogle = () => (<svg viewBox="0 0 24 24" width="20" height="20"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>);
+    const IconInstagram = () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><defs><linearGradient id="ig-g" x1="2" y1="22" x2="22" y2="2"><stop offset="0%" stopColor="#f9ce34"/><stop offset="50%" stopColor="#ee2a7b"/><stop offset="100%" stopColor="#6228d7"/></linearGradient></defs><rect width="20" height="20" x="2" y="2" rx="5" ry="5" stroke="url(#ig-g)" strokeWidth="2.2"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" stroke="url(#ig-g)" strokeWidth="2.2"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5" stroke="url(#ig-g)" strokeWidth="2.2" strokeLinecap="round"/></svg>);
+    const IconFacebook = () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>);
+    const IconYoutube = () => (<svg width="22" height="16" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.5 12 3.5 12 3.5s-7.505 0-9.377.55a3.016 3.016 0 0 0-2.122 2.136C.001 8.086 0 12 0 12s.001 3.914.501 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.55 9.377.55 9.377.55s7.505 0 9.377-.55a3.016 3.016 0 0 0 2.122-2.136C23.999 15.914 24 12 24 12s-.001-3.914-.502-5.814z" fill="#FF0000"/><path d="M9.545 15.568V8.432L15.818 12l-6.273 3.568z" fill="#FFFFFF"/></svg>);
+    const IconTikTok = () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="#000"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/></svg>);
+    const IconThreads = () => (<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-black"><path d="M12 22a10 10 0 1 0-8.4-4.6"/><path d="M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/><path d="M16 12v1a4 4 0 0 1-8 0v-1a4 4 0 0 1 8 0Z"/></svg>);
+    const IconXHS = () => (<span className="bg-[#ff2442] text-white text-[9px] px-1 rounded shadow-sm font-bold tracking-wider leading-none flex items-center justify-center" style={{ height:'18px', width:'max-content' }}>小紅書</span>);
 
     const getSocialIcon = (platformName) => {
       if (platformName.includes('TikTok')) return <IconTikTok />;
@@ -369,10 +335,11 @@
       const [data, setData] = useState([]);
       const [categories, setCategories] = useState([]);
       const [isLoading, setIsLoading] = useState(true);
+
+      // 搜尋與篩選狀態
       const [searchTerm, setSearchTerm] = useState('');
-      const [selectedCategory, setSelectedCategory] = useState('All');
+      const [selectedCategories, setSelectedCategories] = useState([]); // 變成複選 Array
       const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
-      
       const [advFilters, setAdvFilters] = useState({ followers:'all', promoPlats:[], tags:[] });
       const [sortBy, setSortBy] = useState('newest'); 
       const [currentPage, setCurrentPage] = useState(1);
@@ -382,8 +349,11 @@
       const [editingData, setEditingData] = useState(null);
       const [selectedCreator, setSelectedCreator] = useState(null);
       const [creatorToDelete, setCreatorToDelete] = useState(null);
-      const [isCategoriesOpen, setIsCategoriesOpen] = useState(false);
       
+      // 領域分類的下拉選單狀態
+      const [showCatFilterDD, setShowCatFilterDD] = useState(false);
+      const catFilterRef = useRef(null);
+
       // 🛒 購物車狀態
       const [selectedIds, setSelectedIds] = useState([]);
       const prevEmailRef = useRef(null);
@@ -449,12 +419,23 @@
 
       useEffect(() => { 
         setCurrentPage(1); 
-      }, [searchTerm, selectedCategory, advFilters, sortBy]);
+      }, [searchTerm, selectedCategories, advFilters, sortBy]);
+
+      // 點擊外部關閉 Categories 下拉選單
+      useEffect(() => {
+        const handleClickOutside = e => {
+          if (catFilterRef.current && !catFilterRef.current.contains(e.target)) setShowCatFilterDD(false);
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+      }, []);
 
       const safeData = Array.isArray(data) ? data : [];
       const filteredData = useMemo(() => {
         return safeData.filter(item => {
           if (!item) return false;
+          
+          // 關鍵字搜尋
           const s = searchTerm.trim().toLowerCase();
           if (s) {
             const terms = s.split(/\s+/);
@@ -466,7 +447,12 @@
             if (!matchSearch) return false;
           }
 
-          if (selectedCategory !== 'All' && !(item.category||'').includes(selectedCategory)) return false;
+          // Category 複選邏輯 (OR 聯集)
+          if (selectedCategories.length > 0) {
+            const itemCats = parseTags(item.category);
+            const hasCatMatch = selectedCategories.some(c => itemCats.includes(c));
+            if (!hasCatMatch) return false;
+          }
           
           const f = parseInt(String(item.followers||'0').replace(/,/g,''),10) || 0;
           if (advFilters.followers === 'nano' && f >= 10000) return false;
@@ -497,11 +483,10 @@
           if (sortBy === 'quote_new') return (b.quote_updated_date||'').localeCompare(a.quote_updated_date||'');
           return 0;
         });
-      }, [safeData, searchTerm, selectedCategory, advFilters, sortBy]);
+      }, [safeData, searchTerm, selectedCategories, advFilters, sortBy]);
 
       const displayedData = useMemo(() => filteredData.slice((currentPage-1)*ITEMS_PER_PAGE, currentPage*ITEMS_PER_PAGE), [filteredData, currentPage]);
       const totalPages = Math.ceil(filteredData.length / ITEMS_PER_PAGE);
-      const safeCategories = Array.isArray(categories) ? categories : [];
 
       // ---------------------------------------------------------
       // 3. 一般函數 (Function) 
@@ -509,7 +494,7 @@
       const fetchData = async () => {
         setIsLoading(true);
         if (!isRealMode) {
-          // Mock data handling
+          // Mock
         } else {
           try {
             const [{ data: inf, error }, { data: cats }] = await Promise.all([
@@ -593,7 +578,7 @@
       // 🏠 重新設定所有條件
       const handleResetAll = () => {
         setSearchTerm('');
-        setSelectedCategory('All');
+        setSelectedCategories([]);
         setAdvFilters({ followers:'all', promoPlats:[], tags:[] });
         setSortBy('newest');
         setCurrentPage(1);
@@ -607,7 +592,7 @@
         setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
       };
 
-      // 📦 完整無錯版的匯出功能
+      // 📦 匯出功能
       const handleExportCSV = () => {
         const dataToExport = selectedIds.length > 0 
           ? safeData.filter(d => selectedIds.includes(d.id)) 
@@ -619,7 +604,6 @@
         }
 
         const headers = ['網紅姓名', '最高粉絲數', 'Email', 'Instagram', 'YouTube', 'Facebook', '其他社群連結', '額外曝光管道與說明', '合作模式 Tags', '固定開團平台', '保底費用 / 預計分潤', '備註'];
-        
         const escapeCSV = (str) => {
           if (str === null || str === undefined) return '""';
           return `"${String(str).replace(/"/g, '""')}"`;
@@ -633,18 +617,9 @@
           });
 
           return [
-            escapeCSV(d.name),
-            escapeCSV(d.followers),
-            escapeCSV(d.email),
-            escapeCSV(d.instagram_url),
-            escapeCSV(d.youtube_url),
-            escapeCSV(d.facebook_url),
-            escapeCSV(otherLinks.join('\n')), 
-            escapeCSV(d.extra_platforms), 
-            escapeCSV(d.collaboration_tags),
-            escapeCSV(d.promo_platforms), 
-            escapeCSV(`保底: ${d.base_fee || '無'} / 分潤: ${d.commission_rate || '無'}`),
-            escapeCSV(d.notes)
+            escapeCSV(d.name), escapeCSV(d.followers), escapeCSV(d.email), escapeCSV(d.instagram_url), escapeCSV(d.youtube_url),
+            escapeCSV(d.facebook_url), escapeCSV(otherLinks.join('\n')), escapeCSV(d.extra_platforms), escapeCSV(d.collaboration_tags),
+            escapeCSV(d.promo_platforms), escapeCSV(`保底: ${d.base_fee || '無'} / 分潤: ${d.commission_rate || '無'}`), escapeCSV(d.notes)
           ].join(',');
         });
 
@@ -657,6 +632,25 @@
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+      };
+
+      // 🎓 新手導覽動畫 (Driver.js)
+      const startTour = () => {
+        if (!window.driver) return alert('載入導覽套件失敗，請稍後重試。');
+        const driverObj = window.driver.js.driver({
+          showProgress: true,
+          nextBtnText: '下一步',
+          prevBtnText: '上一步',
+          doneBtnText: '完成教學',
+          steps: [
+            { element: '#tour-logo', popover: { title: '1. 回到首頁', description: '點擊 LOGO 可以隨時清除所有搜尋與篩選條件，回到最乾淨的初始畫面。', side: "bottom", align: 'start' }},
+            { element: '#tour-search', popover: { title: '2. 快速搜尋', description: '直接輸入網紅姓名、IG帳號、標籤或備註來尋找人選。', side: "bottom", align: 'start' }},
+            { element: '#tour-advanced', popover: { title: '3. 進階篩選與領域', description: '點擊展開篩選面板，現在可以「跨領域複選」類別、開團平台等條件了！', side: "bottom", align: 'start' }},
+            { element: '#tour-export', popover: { title: '4. 匯出與購物車', description: '勾選下方網紅卡片左上角的「＋」號加入購物車，這顆按鈕就會自動變身，讓你精準匯出名單。', side: "bottom", align: 'start' }},
+            { element: '#tour-add', popover: { title: '5. 新增網紅', description: '隨時把最新發現的網紅建檔，豐富你們的專屬資料庫吧！', side: "bottom", align: 'start' }}
+          ]
+        });
+        driverObj.drive();
       };
 
       // ---------------------------------------------------------
@@ -685,11 +679,8 @@
               </div>
               <h1 className="text-3xl font-black text-slate-800 mb-2 tracking-tight">Affiliate <span className="grad-brand">Database</span></h1>
               <p className="text-sm font-semibold text-slate-500 mb-10">請使用 Google 企業帳號登入系統</p>
-              
-              <button onClick={handleLogin}
-                className="w-full flex items-center justify-center gap-3 bg-white border border-slate-200 text-slate-700 py-3.5 px-6 rounded-2xl text-sm font-bold shadow-sm hover:bg-slate-50 hover:shadow-md transition-all active:scale-95">
-                <IconGoogle /> 
-                <span>使用 Google 帳號登入</span>
+              <button onClick={handleLogin} className="w-full flex items-center justify-center gap-3 bg-white border border-slate-200 text-slate-700 py-3.5 px-6 rounded-2xl text-sm font-bold shadow-sm hover:bg-slate-50 hover:shadow-md transition-all active:scale-95">
+                <IconGoogle /> <span>使用 Google 帳號登入</span>
               </button>
               <div className="mt-8 text-[11px] text-slate-400 font-bold uppercase tracking-widest">CONFIDENTIAL · INTERNAL USE ONLY</div>
             </div>
@@ -701,16 +692,10 @@
         return (
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
             <div className="bg-white p-10 rounded-[2rem] shadow-xl w-full max-w-md border border-slate-100 text-center animate-zoom-in">
-              <div className="w-16 h-16 bg-red-50 rounded-full mx-auto mb-6 flex items-center justify-center border border-red-100">
-                <Icon name="shield" size={28} className="text-red-500" strokeWidth={1.5} />
-              </div>
+              <div className="w-16 h-16 bg-red-50 rounded-full mx-auto mb-6 flex items-center justify-center border border-red-100"><Icon name="shield" size={28} className="text-red-500" strokeWidth={1.5} /></div>
               <h2 className="text-2xl font-black text-slate-800 mb-3">沒有存取權限</h2>
-              <p className="text-sm text-slate-500 mb-8 leading-relaxed">
-                您的信箱 <strong>{session.user.email}</strong> 不在系統白名單內。<br/>請聯絡管理員為您開啟權限。
-              </p>
-              <button onClick={handleLogout} className="px-8 py-3 bg-slate-800 text-white rounded-xl text-sm font-bold hover:bg-slate-700 transition-colors shadow-md">
-                切換帳號或登出
-              </button>
+              <p className="text-sm text-slate-500 mb-8 leading-relaxed">您的信箱 <strong>{session.user.email}</strong> 不在系統白名單內。<br/>請聯絡管理員為您開啟權限。</p>
+              <button onClick={handleLogout} className="px-8 py-3 bg-slate-800 text-white rounded-xl text-sm font-bold hover:bg-slate-700 transition-colors shadow-md">切換帳號或登出</button>
             </div>
           </div>
         );
@@ -721,111 +706,69 @@
       // ---------------------------------------------------------
       return (
         <div className="min-h-screen flex font-sans">
-          {/* ── SIDEBAR ─────────────────────────────────────── */}
-          <aside className="w-64 hidden md:flex flex-col h-screen sticky top-0 z-20 bg-white/75 backdrop-blur-xl border-r border-white/50 shadow-[4px_0_30px_rgba(0,0,0,0.03)]">
-            <div className="sidebar-top-accent" />
-            <div className="p-6 border-b border-slate-100/80">
-              {/* 🏠 回首頁點擊事件 (移除囉嗦文字) */}
-              <div className="mb-1 cursor-pointer group" onClick={handleResetAll} title="回到首頁並清除所有條件">
-                <h1 className="text-2xl font-black tracking-tight leading-none group-hover:opacity-80 transition-opacity">
-                  <span className="grad-hero">Affiliate</span>
-                  <span className="text-slate-700 text-base font-bold ml-1.5 tracking-normal">Database TW</span>
-                </h1>
-                <p className="text-[11px] text-slate-400 font-semibold mt-1.5 tracking-wide group-hover:text-brand transition-colors">© {new Date().getFullYear()} AnyMind Group</p>
-              </div>
+          {/* ── MAIN (全寬無側邊欄) ────────────────────────────────────────── */}
+          <main className="flex-1 flex flex-col min-h-screen overflow-hidden relative">
+            
+            {/* 總資料數浮動標籤 (右下角) */}
+            <div className="fixed bottom-6 right-6 text-[11px] font-bold text-slate-500 bg-white/80 backdrop-blur-xl px-4 py-2.5 rounded-full border border-slate-200 shadow-glass pointer-events-none z-40 flex items-center gap-2 animate-fade-in">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand/50 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-brand"></span>
+              </span>
+              資料庫總計: <span className="text-slate-800 font-black text-xs">{data.length}</span> 筆
             </div>
 
-            <div className="p-4 flex-1 overflow-y-auto no-scrollbar space-y-5">
-              <div>
-                <button onClick={() => setIsCategoriesOpen(!isCategoriesOpen)} className="w-full flex items-center justify-between text-[10px] font-black text-slate-400 mb-2 uppercase tracking-[0.12em] pl-2 pr-1 hover:text-slate-600 transition-colors">
-                  <span className="flex items-center gap-2"><Icon name="filter" size={12} /> Categories</span>
-                  <Icon name={isCategoriesOpen ? 'chevup' : 'chevdown'} size={14} />
-                </button>
-                {isCategoriesOpen && (
-                  <div className="space-y-0.5 animate-slide-down">
-                    {[{id:'all',name:'全部領域 All'}, ...safeCategories].map(cat => {
-                      const key = cat.id === 'all' ? 'All' : cat.name;
-                      const active = selectedCategory === key;
-                      return (
-                        <button key={cat.id} onClick={() => setSelectedCategory(key)} className={`w-full text-left px-4 py-2.5 rounded-xl text-sm transition-all duration-200 ${active ? 'bg-gradient-to-r from-brand/10 to-brand/5 text-brand font-black border border-brand/15 shadow-sm' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800 font-medium'}`}>
-                          {active && <span className="inline-block w-1.5 h-1.5 rounded-full bg-brand mr-2 mb-0.5"></span>}
-                          {cat.name}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              <div className="pt-2 border-t border-slate-100/80">
-                <button className="w-full flex items-center justify-between text-[10px] font-black text-slate-400 uppercase tracking-[0.12em] pl-2 pr-1 hover:text-slate-600 transition-colors opacity-50 cursor-not-allowed" title="即將推出">
-                  <span className="flex items-center gap-2"><Icon name="info" size={12} /> 使用說明 & 規範</span>
-                  <Icon name="chevdown" size={14} />
-                </button>
-              </div>
-            </div>
-
-            <div className="p-4 border-t border-slate-100/80 bg-slate-50/50">
-              <div className="bg-white rounded-xl p-3 border border-slate-200 shadow-sm flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span>
-                  <span className="text-xs font-bold text-slate-500">總資料數</span>
-                </div>
-                <div className="text-right flex items-baseline gap-1">
-                  <span className="font-black text-slate-700 text-xs leading-none">{data.length}</span><span className="text-xs font-bold text-slate-400">筆</span>
+            <header className="bg-white/80 backdrop-blur-xl border-b border-slate-100 px-4 lg:px-6 py-3 lg:py-4 flex flex-col lg:flex-row items-center justify-between sticky top-0 z-10 shadow-[0_1px_20px_rgba(0,0,0,0.04)] gap-4">
+              
+              {/* 🏠 LOGO 與 回首頁 */}
+              <div className="w-full lg:w-auto flex items-center justify-between shrink-0">
+                <div className="cursor-pointer group flex items-center" onClick={handleResetAll} title="回到首頁並清除所有條件" id="tour-logo">
+                  <h1 className="text-[22px] lg:text-2xl font-black tracking-tight leading-none group-hover:opacity-80 transition-opacity">
+                    <span className="grad-hero">Affiliate</span>
+                    <span className="text-slate-700 text-base lg:text-lg font-bold ml-1.5 tracking-normal">Database TW</span>
+                  </h1>
                 </div>
               </div>
-            </div>
-          </aside>
 
-          {/* ── MAIN ────────────────────────────────────────── */}
-          <main className="flex-1 flex flex-col min-h-screen overflow-hidden">
-            <header className="bg-white/80 backdrop-blur-xl border-b border-slate-100 px-6 py-4 flex flex-col sm:flex-row items-center justify-between sticky top-0 z-10 shadow-[0_1px_20px_rgba(0,0,0,0.04)] gap-4">
-              <div className="md:hidden flex items-center gap-2 text-xs font-bold text-slate-500 bg-white/60 px-3 py-2 rounded-xl border border-slate-100 shadow-sm w-full">
-                <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span>
-                資料庫：<span className="grad-brand text-sm ml-auto">{data.length} 筆</span>
-              </div>
-
-              <div className="flex items-center w-full max-w-xl xl:max-w-2xl gap-3">
+              {/* 🔍 搜尋與篩選 */}
+              <div className="flex items-center w-full lg:max-w-xl xl:max-w-2xl gap-3 flex-1" id="tour-search">
                 <div className="relative flex-1">
                   <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Icon name="search" size={17} /></div>
-                  <input type="text" placeholder="搜尋網紅姓名或 @帳號..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-                    className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-brand/25 focus:border-brand/50 shadow-sm text-sm transition-all" />
+                  <input type="text" placeholder="搜尋網紅姓名或 @帳號..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-brand/25 focus:border-brand/50 shadow-sm text-sm transition-all" />
                 </div>
-                <select value={sortBy} onChange={e => setSortBy(e.target.value)}
-                  className="p-3 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-brand/25 shadow-sm text-sm text-slate-600 font-bold cursor-pointer hidden md:block">
-                  <option value="newest">加入時間：新 → 舊</option>
-                  <option value="oldest">加入時間：舊 → 新</option>
-                  <option value="followers_desc">粉絲：高 → 低</option>
-                  <option value="followers_asc">粉絲：低 → 高</option>
+                <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="p-3 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-brand/25 shadow-sm text-sm text-slate-600 font-bold cursor-pointer hidden md:block">
+                  <option value="newest">加入時間：新 → 舊</option><option value="oldest">加入時間：舊 → 新</option><option value="followers_desc">粉絲：高 → 低</option><option value="followers_asc">粉絲：低 → 高</option>
                 </select>
-                <button onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                  className={`p-3 rounded-xl transition-all border shrink-0 ${showAdvancedFilters ? 'bg-brand text-white border-brand shadow-glow' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50 shadow-sm'}`}>
+                <button id="tour-advanced" onClick={() => setShowAdvancedFilters(!showAdvancedFilters)} className={`p-3 rounded-xl transition-all border shrink-0 ${showAdvancedFilters ? 'bg-brand text-white border-brand shadow-glow' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50 shadow-sm'}`}>
                   <Icon name="sliders" size={16} />
                 </button>
               </div>
 
-              <div className="flex items-center gap-3 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 shrink-0">
+              {/* ⚙️ 操作按鈕區 */}
+              <div className="flex items-center gap-2 lg:gap-3 w-full lg:w-auto overflow-x-auto pb-1 lg:pb-0 shrink-0">
+                {/* 🎓 導覽按鈕 */}
+                <button onClick={startTour} className="shrink-0 flex items-center justify-center gap-1.5 text-slate-500 bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-xs font-bold transition-all hover:bg-white hover:text-brand hover:border-brand/30 shadow-sm" title="操作導覽">
+                  <Icon name="help" size={15} /> <span className="hidden lg:inline">導覽</span>
+                </button>
+
                 {/* 🛒 購物車匯出按鈕切換 */}
-                {selectedIds.length > 0 ? (
-                  <div className="flex items-center gap-1.5 bg-brand/10 p-1 pl-1.5 rounded-2xl border border-brand/20 animate-fade-in shrink-0">
-                    <button onClick={handleExportCSV} className="flex items-center gap-2 text-white bg-brand px-4 py-1.5 rounded-xl text-sm font-bold shadow-sm hover:bg-red-600 transition-all">
-                      <Icon name="download" size={16} /> 匯出已選 ({selectedIds.length})
-                    </button>
-                    <button onClick={() => setSelectedIds([])} className="px-3 py-1.5 text-xs font-bold text-brand hover:bg-brand/20 rounded-xl transition-all" title="清除選取">
-                      清除
-                    </button>
-                  </div>
-                ) : (
-                  <button onClick={handleExportCSV} className="shrink-0 flex items-center justify-center gap-2 text-slate-600 bg-white border border-slate-200 px-4 py-2.5 rounded-2xl text-sm font-bold transition-all hover:bg-slate-50 hover:text-brand hover:border-brand/30 shadow-sm">
-                    <Icon name="download" size={16} /> <span className="hidden lg:inline">匯出</span>
-                  </button>
-                )}
+                <div id="tour-export">
+                  {selectedIds.length > 0 ? (
+                    <div className="flex items-center gap-1.5 bg-brand/10 p-1 pl-1.5 rounded-2xl border border-brand/20 animate-fade-in shrink-0">
+                      <button onClick={handleExportCSV} className="flex items-center gap-2 text-white bg-brand px-4 py-1.5 rounded-xl text-sm font-bold shadow-sm hover:bg-red-600 transition-all"><Icon name="download" size={16} /> 匯出已選 ({selectedIds.length})</button>
+                      <button onClick={() => setSelectedIds([])} className="px-3 py-1.5 text-xs font-bold text-brand hover:bg-brand/20 rounded-xl transition-all" title="清除選取">清除</button>
+                    </div>
+                  ) : (
+                    <button onClick={handleExportCSV} className="shrink-0 flex items-center justify-center gap-2 text-slate-600 bg-white border border-slate-200 px-4 py-2.5 rounded-2xl text-sm font-bold transition-all hover:bg-slate-50 hover:text-brand hover:border-brand/30 shadow-sm"><Icon name="download" size={16} /> <span className="hidden lg:inline">匯出</span></button>
+                  )}
+                </div>
 
                 {['admin', 'editor'].includes(userRole) && (
-                  <button onClick={openCreateForm} className="shrink-0 flex items-center justify-center gap-2 text-white px-5 py-2.5 rounded-2xl text-sm font-black transition-all shadow-glow hover:shadow-lg hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, #E14f4b 0%, #f0857f 50%, #c75551 100%)' }}>
-                    <Icon name="plus" size={16} /> <span className="hidden sm:inline">新增網紅</span>
-                  </button>
+                  <div id="tour-add">
+                    <button onClick={openCreateForm} className="shrink-0 flex items-center justify-center gap-2 text-white px-5 py-2.5 rounded-2xl text-sm font-black transition-all shadow-glow hover:shadow-lg hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, #E14f4b 0%, #f0857f 50%, #c75551 100%)' }}>
+                      <Icon name="plus" size={16} /> <span className="hidden sm:inline">新增網紅</span>
+                    </button>
+                  </div>
                 )}
 
                 <div className="flex items-center gap-2 pl-3 ml-1 border-l border-slate-200 shrink-0">
@@ -840,51 +783,91 @@
 
             {showAdvancedFilters && (
               <div className="bg-white/90 backdrop-blur-xl border-b border-slate-100 px-6 py-5 shadow-sm z-0 animate-slide-down">
-                <div className="max-w-5xl flex flex-col lg:flex-row gap-6 lg:items-start">
-                  <div className="space-y-2 w-full lg:w-56 shrink-0">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.12em]">粉絲數級別</label>
-                    <select value={advFilters.followers} onChange={e => setAdvFilters({...advFilters, followers:e.target.value})} className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand/25 font-medium">
-                      <option value="all">不限</option><option value="nano">Nano (&lt; 10k)</option><option value="micro">Micro (10k–50k)</option><option value="macro">Macro (50k–150k)</option><option value="mega">Mega (150k–300k)</option><option value="toptier">Top Tier (&gt; 300k)</option>
-                    </select>
-                  </div>
-                  
-                  <div className="space-y-2 w-full lg:w-auto shrink-0">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.12em]">開團平台</label>
-                    <div className="flex flex-wrap gap-2 pt-2">
-                      {PROMO_PLATFORM_OPTIONS.map(plat => (
-                        <label key={plat} className={`flex items-center gap-1.5 cursor-pointer text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-all ${advFilters.promoPlats.includes(plat) ? 'bg-brand/10 border-brand text-brand shadow-sm' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-                          <input type="checkbox" className="hidden" checked={advFilters.promoPlats.includes(plat)} onChange={e => {
-                            const newPlats = e.target.checked ? [...advFilters.promoPlats, plat] : advFilters.promoPlats.filter(t => t !== plat);
-                            setAdvFilters({...advFilters, promoPlats: newPlats});
-                          }} />{plat}
-                        </label>
-                      ))}
+                <div className="max-w-6xl flex flex-col gap-6">
+                  {/* 第一排：領域與平台 */}
+                  <div className="flex flex-col lg:flex-row gap-6">
+                    <div className="space-y-2 w-full lg:w-64 shrink-0 z-20">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.12em]">領域類別 Categories</label>
+                      <div ref={catFilterRef} className="relative pt-1.5">
+                        <div onClick={() => setShowCatFilterDD(!showCatFilterDD)} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none hover:border-brand/30 font-bold cursor-pointer flex justify-between items-center shadow-sm transition-colors">
+                          <span className={selectedCategories.length > 0 ? "text-brand" : "text-slate-500"}>
+                            {selectedCategories.length > 0 ? `已選 ${selectedCategories.length} 個領域` : '全部領域 All'}
+                          </span>
+                          <Icon name={showCatFilterDD ? 'chevup' : 'chevdown'} size={16} className="text-slate-400" />
+                        </div>
+                        {showCatFilterDD && (
+                          <div className="absolute z-30 mt-2 w-72 bg-white border border-slate-100 shadow-xl rounded-2xl p-3 grid grid-cols-2 gap-2 animate-slide-down max-h-64 overflow-y-auto thin-scrollbar">
+                            {categories.map(cat => {
+                              const checked = selectedCategories.includes(cat.name);
+                              return (
+                                <label key={cat.id} className={`flex items-center gap-2 text-xs font-bold cursor-pointer p-2 rounded-xl transition-all ${checked ? 'bg-brand/10 text-brand' : 'text-slate-600 hover:bg-slate-50'}`}>
+                                  <input type="checkbox" className="hidden" checked={checked} onChange={e => {
+                                    if (e.target.checked) setSelectedCategories([...selectedCategories, cat.name]);
+                                    else setSelectedCategories(selectedCategories.filter(c => c !== cat.name));
+                                  }} />
+                                  <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 ${checked ? 'border-brand bg-brand text-white' : 'border-slate-300'}`}>
+                                    {checked && <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>}
+                                  </div>
+                                  <span className="truncate">{cat.name}</span>
+                                </label>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-
-                  <div className="space-y-2 flex-1 min-w-0">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.12em]">合作模式 Tags</label>
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-2">
-                      <div className="flex flex-wrap gap-2">
-                        {COLLAB_OPTIONS.map(tag => (
-                          <label key={tag} className={`flex items-center gap-1.5 cursor-pointer text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-all ${advFilters.tags.includes(tag) ? 'bg-brand/10 border-brand text-brand shadow-sm' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-                            <input type="checkbox" className="hidden" checked={advFilters.tags.includes(tag)} onChange={e => {
-                              const newTags = e.target.checked ? [...advFilters.tags, tag] : advFilters.tags.filter(t => t !== tag);
-                              setAdvFilters({...advFilters, tags: newTags});
-                            }} />{tag}
+                    
+                    <div className="space-y-2 w-full lg:w-auto shrink-0">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.12em]">開團平台</label>
+                      <div className="flex flex-wrap gap-2 pt-1.5">
+                        {PROMO_PLATFORM_OPTIONS.map(plat => (
+                          <label key={plat} className={`flex items-center gap-1.5 cursor-pointer text-xs font-semibold px-3 py-2 rounded-xl border transition-all ${advFilters.promoPlats.includes(plat) ? 'bg-brand/10 border-brand text-brand shadow-sm' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                            <input type="checkbox" className="hidden" checked={advFilters.promoPlats.includes(plat)} onChange={e => {
+                              const newPlats = e.target.checked ? [...advFilters.promoPlats, plat] : advFilters.promoPlats.filter(t => t !== plat);
+                              setAdvFilters({...advFilters, promoPlats: newPlats});
+                            }} />{plat}
                           </label>
                         ))}
                       </div>
-                      <button onClick={handleResetAll} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-500 hover:text-brand hover:bg-brand/5 rounded-xl transition-all whitespace-nowrap shrink-0 border border-transparent hover:border-brand/20">
-                        <Icon name="refresh" size={14} /> 重設全部條件
-                      </button>
+                    </div>
+                  </div>
+
+                  {/* 第二排：粉絲數與 Tags */}
+                  <div className="flex flex-col lg:flex-row gap-6 items-start">
+                    <div className="space-y-2 w-full lg:w-64 shrink-0">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.12em]">粉絲數級別</label>
+                      <div className="pt-1.5">
+                        <select value={advFilters.followers} onChange={e => setAdvFilters({...advFilters, followers:e.target.value})} className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand/25 font-bold text-slate-600 shadow-sm">
+                          <option value="all">不限</option><option value="nano">Nano (&lt; 10k)</option><option value="micro">Micro (10k–50k)</option><option value="macro">Macro (50k–150k)</option><option value="mega">Mega (150k–300k)</option><option value="toptier">Top Tier (&gt; 300k)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 flex-1 min-w-0">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.12em]">合作模式 Tags</label>
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-1.5">
+                        <div className="flex flex-wrap gap-2">
+                          {COLLAB_OPTIONS.map(tag => (
+                            <label key={tag} className={`flex items-center gap-1.5 cursor-pointer text-xs font-semibold px-3 py-2 rounded-xl border transition-all ${advFilters.tags.includes(tag) ? 'bg-brand/10 border-brand text-brand shadow-sm' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                              <input type="checkbox" className="hidden" checked={advFilters.tags.includes(tag)} onChange={e => {
+                                const newTags = e.target.checked ? [...advFilters.tags, tag] : advFilters.tags.filter(t => t !== tag);
+                                setAdvFilters({...advFilters, tags: newTags});
+                              }} />{tag}
+                            </label>
+                          ))}
+                        </div>
+                        {/* 🧹 重設全部條件按鈕 */}
+                        <button onClick={handleResetAll} className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-slate-500 hover:text-brand bg-slate-50 hover:bg-brand/5 rounded-xl transition-all whitespace-nowrap shrink-0 border border-slate-100 hover:border-brand/20 shadow-sm">
+                          <Icon name="refresh" size={14} /> 重設全部條件
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
             )}
 
-            <div id="scroll-container" className="p-6 md:p-8 overflow-y-auto flex-1 no-scrollbar">
+            <div id="scroll-container" className="p-6 md:p-8 overflow-y-auto flex-1 no-scrollbar pb-24">
               {isLoading ? (
                 <div className="flex items-center justify-center h-64 text-slate-400 font-medium flex-col gap-3"><span className="relative flex h-4 w-4"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand/50 opacity-75"></span><span className="relative inline-flex rounded-full h-4 w-4 bg-brand"></span></span>資料讀取中...</div>
               ) : (
