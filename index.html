@@ -921,7 +921,7 @@
       );
     }
 
-    // ============================================================
+// ============================================================
     // 🃏 CREATOR CARD
     // ============================================================
     function CreatorCard({ data, onClick }) {
@@ -934,8 +934,15 @@
       const displaySocialsObj = mergeDisplaySocials(data);
 
       return (
-        <div onClick={onClick} className="card-shimmer bg-white/80 backdrop-blur-xl border border-slate-100 hover:border-brand/20 hover:shadow-[0_16px_48px_rgba(225,79,75,0.10)] hover:-translate-y-1.5 transition-all duration-300 rounded-[1.5rem] cursor-pointer flex flex-col p-4 relative group animate-fade-in shadow-[0_4px_20px_rgba(0,0,0,0.04)]">
+        // ✅ 修改 1：移除了 card-shimmer 類別，解除卡片的 overflow: hidden 封印
+        <div onClick={onClick} className="bg-white/80 backdrop-blur-xl border border-slate-100 hover:border-brand/20 hover:shadow-[0_16px_48px_rgba(225,79,75,0.10)] hover:-translate-y-1.5 transition-all duration-300 rounded-[1.5rem] cursor-pointer flex flex-col p-4 relative group animate-fade-in shadow-[0_4px_20px_rgba(0,0,0,0.04)]">
 
+          {/* ✅ 修改 2：加入這段「獨立的流光特效層」！它自帶 overflow-hidden 且不影響小黑框 */}
+          <div className="absolute inset-0 rounded-[1.5rem] overflow-hidden pointer-events-none z-10">
+            <div className="absolute top-0 left-[-100%] w-[60%] h-full bg-gradient-to-r from-transparent via-white/50 to-transparent group-hover:left-[150%] transition-all duration-500 ease-in-out"></div>
+          </div>
+
+          {/* 下面這行是原本就有的，用來對齊位置 */}
           <div className="absolute top-4 right-4 z-20 group/tip cursor-help">
             <span className="relative flex h-3 w-3">
               {profileOutdated && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>}
