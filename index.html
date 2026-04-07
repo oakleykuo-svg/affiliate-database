@@ -642,15 +642,8 @@
           return `"${String(str).replace(/"/g, '""')}"`;
         };
 
-        // ✅ 把原本裡面的 filteredData.map 改成 dataToExport.map
+        // ✅ 使用 dataToExport 進行迴圈匯出
         const rows = dataToExport.map(d => {
-        
-        const escapeCSV = (str) => {
-          if (str === null || str === undefined) return '""';
-          return `"${String(str).replace(/"/g, '""')}"`;
-        };
-
-        const rows = filteredData.map(d => {
           const parsedSocials = parseOtherSocials(d.other_social_platforms);
           const otherLinks = [];
           Object.entries(parsedSocials).forEach(([k, v]) => {
