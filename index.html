@@ -120,7 +120,7 @@
     const { useState, useEffect, useMemo, useRef } = React;
 
     // ============================================================
-    // 🛡️ ERROR BOUNDARY (防止系統白畫面，捕捉崩潰錯誤)
+    // 🛡️ ERROR BOUNDARY 
     // ============================================================
     class ErrorBoundary extends React.Component {
       constructor(props) {
@@ -183,7 +183,8 @@
       mail:      <><rect width="20" height="16" x="2" y="4" rx="2" ry="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></>,
       download:  <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></>,
       logout:    <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></>,
-      shield:    <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></>
+      shield:    <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></>,
+      refresh:   <><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></> // ↺ 重設按鈕 Icon
     };
     const Icon = ({ name, size = 16, className = '', stroke = 'currentColor', strokeWidth = 2 }) => (
       <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -244,7 +245,7 @@
     };
 
     // ============================================================
-    // 🔧 HELPERS (全面強化空值與型別檢查)
+    // 🔧 HELPERS
     // ============================================================
     const formatFollowers = (num) => {
       if (!num) return '0';
@@ -278,7 +279,6 @@
       return clean;
     };
 
-    // 🛡️ 強化安全防護：防止 JSON.parse 壞掉或是回傳奇怪格式
     const parseOtherSocials = (jsonStr) => {
       if (!jsonStr || typeof jsonStr !== 'string') return {};
       try {
@@ -356,14 +356,14 @@
     const inputCls = "w-full px-4 py-3 bg-white/60 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all shadow-sm text-sm";
 
     // ============================================================
-    // 🟢 APP ROOT (包含 Auth 與 RBAC 邏輯)
+    // 🟢 APP ROOT 
     // ============================================================
     function App() {
       // ---------------------------------------------------------
-      // 1. 所有 State (狀態) Hooks 區塊
+      // 1. 所有 State Hooks 
       // ---------------------------------------------------------
       const [session, setSession] = useState(null);
-      const [userRole, setUserRole] = useState(null); // 'admin' | 'editor' | 'viewer' | 'unauthorized'
+      const [userRole, setUserRole] = useState(null); 
       const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
       const [data, setData] = useState([]);
@@ -383,12 +383,13 @@
       const [selectedCreator, setSelectedCreator] = useState(null);
       const [creatorToDelete, setCreatorToDelete] = useState(null);
       const [isCategoriesOpen, setIsCategoriesOpen] = useState(false);
-      // 🛒 新增：選角購物車狀態
+      
+      // 🛒 購物車狀態
       const [selectedIds, setSelectedIds] = useState([]);
       const prevEmailRef = useRef(null);
 
       // ---------------------------------------------------------
-      // 2. 所有 Effect & Memo (副作用與計算) Hooks 區塊
+      // 2. 所有 Effect & Memo Hooks
       // ---------------------------------------------------------
       useEffect(() => {
         if (!isRealMode) {
@@ -398,16 +399,12 @@
           return;
         }
 
-        // ✅ 修改 1：加入 silent 參數，決定要不要蓋上「驗證身分中」的白畫面
         const checkUserRole = async (email, silent = false) => {
           if (!silent) setIsCheckingAuth(true);
           try {
             const { data, error } = await supabase.from('allowed_users').select('role').eq('email', email).single();
-            if (error || !data) {
-              setUserRole('unauthorized');
-            } else {
-              setUserRole(data.role);
-            }
+            if (error || !data) setUserRole('unauthorized');
+            else setUserRole(data.role);
           } catch (err) {
             console.error("Role fetch error:", err);
             setUserRole('unauthorized');
@@ -416,26 +413,22 @@
           }
         };
 
-        // ✅ 修改 2：初次載入時，把 Email 記下來
         supabase.auth.getSession().then(({ data: { session } }) => {
           setSession(session);
           if (session?.user?.email) {
             prevEmailRef.current = session.user.email;
-            checkUserRole(session.user.email, false); // 初次載入，必須顯示載入中
+            checkUserRole(session.user.email, false); 
           } else {
             setIsCheckingAuth(false);
           }
         });
 
-        // ✅ 修改 3：監聽狀態變化時，比對是不是同一個人
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
           setSession(newSession);
           if (newSession?.user?.email) {
             const currentEmail = newSession.user.email;
-            // 如果是同一個人切換分頁，isSameUser 就是 true (代表要 silent 安靜更新)
             const isSameUser = prevEmailRef.current === currentEmail;
             prevEmailRef.current = currentEmail;
-            
             checkUserRole(currentEmail, isSameUser);
           } else {
             prevEmailRef.current = null;
@@ -454,12 +447,10 @@
         }
       }, [session, userRole, isCheckingAuth]);
 
-      // ✅ 關鍵修復：將重設頁碼的 Hook 搬移到所有 return 之上
       useEffect(() => { 
         setCurrentPage(1); 
       }, [searchTerm, selectedCategory, advFilters, sortBy]);
 
-      // ✅ 關鍵修復：將資料篩選計算的 Hook 搬移到所有 return 之上
       const safeData = Array.isArray(data) ? data : [];
       const filteredData = useMemo(() => {
         return safeData.filter(item => {
@@ -471,7 +462,6 @@
               item.name, item.user_id, item.instagram_url, 
               item.category, item.collaboration_tags, item.notes, item.extra_platforms
             ].join(' ').toLowerCase();
-            
             const matchSearch = terms.some(term => itemText.includes(term));
             if (!matchSearch) return false;
           }
@@ -514,7 +504,7 @@
       const safeCategories = Array.isArray(categories) ? categories : [];
 
       // ---------------------------------------------------------
-      // 3. 一般函數 (Function) 區塊
+      // 3. 一般函數 (Function) 
       // ---------------------------------------------------------
       const fetchData = async () => {
         setIsLoading(true);
@@ -539,9 +529,7 @@
         if (error) alert(`登入失敗: ${error.message}`);
       };
 
-      const handleLogout = async () => {
-        await supabase.auth.signOut();
-      };
+      const handleLogout = async () => { await supabase.auth.signOut(); };
 
       const handleSaveCreator = async (newCreator, isEditMode, originalId) => {
         if (userRole === 'viewer') return alert('權限不足：您只能瀏覽資料。');
@@ -561,9 +549,7 @@
               if (updated && updated.length > 0) {
                 setData(data.map(d => d.id === originalId ? updated[0] : d));
                 closeForm();
-              } else {
-                throw new Error('更新失敗：可能無此權限或找不到資料');
-              }
+              } else throw new Error('更新失敗：可能無此權限或找不到資料');
             } else {
               delete final.id;
               const { data: inserted, error } = await supabase.from('influencers').insert([final]).select();
@@ -571,9 +557,7 @@
               if (inserted && inserted.length > 0) {
                 setData([inserted[0], ...data]);
                 closeForm();
-              } else {
-                throw new Error('新增失敗：無回傳資料，可能被 RLS 權限阻擋');
-              }
+              } else throw new Error('新增失敗：無回傳資料，可能被 RLS 權限阻擋');
             }
           } catch (err) {
             console.error('Supabase DB Error:', err);
@@ -585,7 +569,6 @@
 
       const handleDeleteCreator = async (creator) => {
         if (userRole !== 'admin') return alert('權限不足：只有管理員能刪除資料。');
-
         if (!isRealMode) {
           setData(data.filter(d => d.id !== creator.id));
           setCreatorToDelete(null); setSelectedCreator(null);
@@ -606,7 +589,8 @@
       const openCreateForm = () => { setEditingData(null); setIsFormOpen(true); };
       const openEditForm = (creator) => { setSelectedCreator(null); setEditingData(creator); setIsFormOpen(true); };
       const closeForm = () => { setIsFormOpen(false); setEditingData(null); };
-      // 🏠 新增：回到首頁 / 重新設定所有條件
+
+      // 🏠 重新設定所有條件
       const handleResetAll = () => {
         setSearchTerm('');
         setSelectedCategory('All');
@@ -614,18 +598,17 @@
         setSortBy('newest');
         setCurrentPage(1);
         setShowAdvancedFilters(false);
-        // 滾動回最上方
         document.getElementById('scroll-container')?.scrollTo({top: 0, behavior: 'smooth'});
       };
 
-      // 🛒 新增：購物車打勾 / 取消打勾邏輯
+      // 🛒 購物車切換邏輯
       const toggleSelection = (id, e) => {
-        e.stopPropagation(); // 阻止點擊事件穿透到卡片，避免打開詳細視窗
+        e.stopPropagation(); 
         setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
       };
 
+      // 📦 完整無錯版的匯出功能
       const handleExportCSV = () => {
-        // ✅ 判斷要匯出的資料來源：有打勾就用 selectedIds，沒打勾就用 filteredData
         const dataToExport = selectedIds.length > 0 
           ? safeData.filter(d => selectedIds.includes(d.id)) 
           : filteredData;
@@ -642,7 +625,6 @@
           return `"${String(str).replace(/"/g, '""')}"`;
         };
 
-        // ✅ 使用 dataToExport 進行迴圈匯出
         const rows = dataToExport.map(d => {
           const parsedSocials = parseOtherSocials(d.other_social_platforms);
           const otherLinks = [];
@@ -678,10 +660,8 @@
       };
 
       // ---------------------------------------------------------
-      // 4. 🚀 提早退場區塊 (Early Returns) -> 絕對不能有任何 Hooks 在這之後！
+      // 4. 🚀 提早退場區塊
       // ---------------------------------------------------------
-      
-      // 🔐 如果還在驗證身分，顯示載入中
       if (isCheckingAuth) {
         return (
           <div className="min-h-screen login-bg flex items-center justify-center">
@@ -696,7 +676,6 @@
         );
       }
 
-      // 🔐 如果沒有 Session，顯示超美登入牆
       if (!session) {
         return (
           <div className="min-h-screen login-bg flex flex-col items-center justify-center p-4">
@@ -718,7 +697,6 @@
         );
       }
 
-      // 🔐 如果有 Session 但不在白名單裡 (Unauthorized)
       if (userRole === 'unauthorized') {
         return (
           <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
@@ -739,7 +717,7 @@
       }
 
       // ---------------------------------------------------------
-      // 5. 畫面渲染區塊 (Render)
+      // 5. 畫面渲染區塊 
       // ---------------------------------------------------------
       return (
         <div className="min-h-screen flex font-sans">
@@ -747,34 +725,29 @@
           <aside className="w-64 hidden md:flex flex-col h-screen sticky top-0 z-20 bg-white/75 backdrop-blur-xl border-r border-white/50 shadow-[4px_0_30px_rgba(0,0,0,0.03)]">
             <div className="sidebar-top-accent" />
             <div className="p-6 border-b border-slate-100/80">
-              {/* 🏠 加入回首頁點擊事件 */}
+              {/* 🏠 回首頁點擊事件 (移除囉嗦文字) */}
               <div className="mb-1 cursor-pointer group" onClick={handleResetAll} title="回到首頁並清除所有條件">
                 <h1 className="text-2xl font-black tracking-tight leading-none group-hover:opacity-80 transition-opacity">
                   <span className="grad-hero">Affiliate</span>
                   <span className="text-slate-700 text-base font-bold ml-1.5 tracking-normal">Database TW</span>
                 </h1>
-                <p className="text-[11px] text-slate-400 font-semibold mt-1.5 tracking-wide group-hover:text-brand transition-colors">© {new Date().getFullYear()} AnyMind Group (點擊回首頁)</p>
+                <p className="text-[11px] text-slate-400 font-semibold mt-1.5 tracking-wide group-hover:text-brand transition-colors">© {new Date().getFullYear()} AnyMind Group</p>
               </div>
             </div>
 
             <div className="p-4 flex-1 overflow-y-auto no-scrollbar space-y-5">
               <div>
-                <button 
-                  onClick={() => setIsCategoriesOpen(!isCategoriesOpen)}
-                  className="w-full flex items-center justify-between text-[10px] font-black text-slate-400 mb-2 uppercase tracking-[0.12em] pl-2 pr-1 hover:text-slate-600 transition-colors"
-                >
+                <button onClick={() => setIsCategoriesOpen(!isCategoriesOpen)} className="w-full flex items-center justify-between text-[10px] font-black text-slate-400 mb-2 uppercase tracking-[0.12em] pl-2 pr-1 hover:text-slate-600 transition-colors">
                   <span className="flex items-center gap-2"><Icon name="filter" size={12} /> Categories</span>
                   <Icon name={isCategoriesOpen ? 'chevup' : 'chevdown'} size={14} />
                 </button>
-                
                 {isCategoriesOpen && (
                   <div className="space-y-0.5 animate-slide-down">
                     {[{id:'all',name:'全部領域 All'}, ...safeCategories].map(cat => {
                       const key = cat.id === 'all' ? 'All' : cat.name;
                       const active = selectedCategory === key;
                       return (
-                        <button key={cat.id} onClick={() => setSelectedCategory(key)}
-                          className={`w-full text-left px-4 py-2.5 rounded-xl text-sm transition-all duration-200 ${active ? 'bg-gradient-to-r from-brand/10 to-brand/5 text-brand font-black border border-brand/15 shadow-sm' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800 font-medium'}`}>
+                        <button key={cat.id} onClick={() => setSelectedCategory(key)} className={`w-full text-left px-4 py-2.5 rounded-xl text-sm transition-all duration-200 ${active ? 'bg-gradient-to-r from-brand/10 to-brand/5 text-brand font-black border border-brand/15 shadow-sm' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800 font-medium'}`}>
                           {active && <span className="inline-block w-1.5 h-1.5 rounded-full bg-brand mr-2 mb-0.5"></span>}
                           {cat.name}
                         </button>
@@ -795,15 +768,11 @@
             <div className="p-4 border-t border-slate-100/80 bg-slate-50/50">
               <div className="bg-white rounded-xl p-3 border border-slate-200 shadow-sm flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                  </span>
+                  <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span>
                   <span className="text-xs font-bold text-slate-500">總資料數</span>
                 </div>
                 <div className="text-right flex items-baseline gap-1">
-                  <span className="font-black text-slate-700 text-xs leading-none">{data.length}</span>
-                  <span className="text-xs font-bold text-slate-400">筆</span>
+                  <span className="font-black text-slate-700 text-xs leading-none">{data.length}</span><span className="text-xs font-bold text-slate-400">筆</span>
                 </div>
               </div>
             </div>
@@ -837,7 +806,7 @@
               </div>
 
               <div className="flex items-center gap-3 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 shrink-0">
-                {/* 🛒 如果有勾選人，切換成購物車匯出模式 */}
+                {/* 🛒 購物車匯出按鈕切換 */}
                 {selectedIds.length > 0 ? (
                   <div className="flex items-center gap-1.5 bg-brand/10 p-1 pl-1.5 rounded-2xl border border-brand/20 animate-fade-in shrink-0">
                     <button onClick={handleExportCSV} className="flex items-center gap-2 text-white bg-brand px-4 py-1.5 rounded-xl text-sm font-bold shadow-sm hover:bg-red-600 transition-all">
@@ -848,25 +817,23 @@
                     </button>
                   </div>
                 ) : (
-                  <button onClick={handleExportCSV}
-                    className="shrink-0 flex items-center justify-center gap-2 text-slate-600 bg-white border border-slate-200 px-4 py-2.5 rounded-2xl text-sm font-bold transition-all hover:bg-slate-50 hover:text-brand hover:border-brand/30 shadow-sm"
-                    title="將目前畫面上的篩選結果匯出成表格">
+                  <button onClick={handleExportCSV} className="shrink-0 flex items-center justify-center gap-2 text-slate-600 bg-white border border-slate-200 px-4 py-2.5 rounded-2xl text-sm font-bold transition-all hover:bg-slate-50 hover:text-brand hover:border-brand/30 shadow-sm">
                     <Icon name="download" size={16} /> <span className="hidden lg:inline">匯出</span>
+                  </button>
+                )}
+
+                {['admin', 'editor'].includes(userRole) && (
+                  <button onClick={openCreateForm} className="shrink-0 flex items-center justify-center gap-2 text-white px-5 py-2.5 rounded-2xl text-sm font-black transition-all shadow-glow hover:shadow-lg hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, #E14f4b 0%, #f0857f 50%, #c75551 100%)' }}>
+                    <Icon name="plus" size={16} /> <span className="hidden sm:inline">新增網紅</span>
                   </button>
                 )}
 
                 <div className="flex items-center gap-2 pl-3 ml-1 border-l border-slate-200 shrink-0">
                   <div className="text-right hidden xl:block">
-                    <div className="text-xs font-black text-slate-700 truncate max-w-[100px]">
-                      {session?.user?.user_metadata?.full_name || (session?.user?.email ? session.user.email.split('@')[0] : 'User')}
-                    </div>
-                    <div className={`text-[9px] font-black uppercase tracking-widest ${userRole === 'admin' ? 'text-brand' : userRole === 'editor' ? 'text-sky-500' : 'text-slate-400'}`}>
-                      {userRole}
-                    </div>
+                    <div className="text-xs font-black text-slate-700 truncate max-w-[100px]">{session?.user?.user_metadata?.full_name || (session?.user?.email ? session.user.email.split('@')[0] : 'User')}</div>
+                    <div className={`text-[9px] font-black uppercase tracking-widest ${userRole === 'admin' ? 'text-brand' : userRole === 'editor' ? 'text-sky-500' : 'text-slate-400'}`}>{userRole}</div>
                   </div>
-                  <button onClick={handleLogout} className="p-2.5 bg-slate-50 border border-slate-200 hover:bg-slate-100 hover:text-red-500 text-slate-500 rounded-xl transition-all shadow-sm" title="登出系統">
-                    <Icon name="logout" size={16} />
-                  </button>
+                  <button onClick={handleLogout} className="p-2.5 bg-slate-50 border border-slate-200 hover:bg-slate-100 hover:text-red-500 text-slate-500 rounded-xl transition-all shadow-sm" title="登出系統"><Icon name="logout" size={16} /></button>
                 </div>
               </div>
             </header>
@@ -876,14 +843,8 @@
                 <div className="max-w-4xl grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.12em]">粉絲數級別</label>
-                    <select value={advFilters.followers} onChange={e => setAdvFilters({...advFilters, followers:e.target.value})}
-                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand/25 font-medium">
-                      <option value="all">不限</option>
-                      <option value="nano">Nano (&lt; 10k)</option>
-                      <option value="micro">Micro (10k–50k)</option>
-                      <option value="macro">Macro (50k–150k)</option>
-                      <option value="mega">Mega (150k–300k)</option>
-                      <option value="toptier">Top Tier (&gt; 300k)</option>
+                    <select value={advFilters.followers} onChange={e => setAdvFilters({...advFilters, followers:e.target.value})} className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand/25 font-medium">
+                      <option value="all">不限</option><option value="nano">Nano (&lt; 10k)</option><option value="micro">Micro (10k–50k)</option><option value="macro">Macro (50k–150k)</option><option value="mega">Mega (150k–300k)</option><option value="toptier">Top Tier (&gt; 300k)</option>
                     </select>
                   </div>
                   
@@ -895,12 +856,10 @@
                           <input type="checkbox" className="hidden" checked={advFilters.promoPlats.includes(plat)} onChange={e => {
                             const newPlats = e.target.checked ? [...advFilters.promoPlats, plat] : advFilters.promoPlats.filter(t => t !== plat);
                             setAdvFilters({...advFilters, promoPlats: newPlats});
-                          }} />
-                          {plat}
+                          }} />{plat}
                         </label>
                       ))}
                     </div>
-                    
                   </div>
 
                   <div className="space-y-2">
@@ -911,25 +870,24 @@
                           <input type="checkbox" className="hidden" checked={advFilters.tags.includes(tag)} onChange={e => {
                             const newTags = e.target.checked ? [...advFilters.tags, tag] : advFilters.tags.filter(t => t !== tag);
                             setAdvFilters({...advFilters, tags: newTags});
-                          }} />
-                          {tag}
+                          }} />{tag}
                         </label>
                       ))}
                     </div>
                   </div>
+                </div>
+                {/* 🧹 真正補上的「↺ 重設全部條件」按鈕 */}
+                <div className="max-w-4xl mt-5 pt-4 border-t border-slate-100 flex justify-end">
+                  <button onClick={handleResetAll} className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-slate-500 hover:text-brand hover:bg-brand/5 rounded-xl transition-all border border-transparent hover:border-brand/20">
+                    <Icon name="refresh" size={14} /> 重設全部條件
+                  </button>
                 </div>
               </div>
             )}
 
             <div id="scroll-container" className="p-6 md:p-8 overflow-y-auto flex-1 no-scrollbar">
               {isLoading ? (
-                <div className="flex items-center justify-center h-64 text-slate-400 font-medium flex-col gap-3">
-                  <span className="relative flex h-4 w-4">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand/50 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-4 w-4 bg-brand"></span>
-                  </span>
-                  資料讀取中...
-                </div>
+                <div className="flex items-center justify-center h-64 text-slate-400 font-medium flex-col gap-3"><span className="relative flex h-4 w-4"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand/50 opacity-75"></span><span className="relative inline-flex rounded-full h-4 w-4 bg-brand"></span></span>資料讀取中...</div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-5">
                   {displayedData.map(creator => (
@@ -938,26 +896,12 @@
 
                   {filteredData.length > 0 && (
                     <div className="col-span-full flex justify-center items-center gap-4 py-8">
-                      <button onClick={() => { setCurrentPage(p => Math.max(1,p-1)); document.getElementById('scroll-container').scrollTo({top:0,behavior:'smooth'}); }}
-                        disabled={currentPage===1}
-                        className="px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 font-bold hover:bg-slate-50 hover:text-brand disabled:opacity-40 transition-all shadow-sm text-sm">
-                        上一頁
-                      </button>
-                      <div className="text-slate-500 font-medium text-sm bg-white px-4 py-2.5 rounded-xl border border-slate-100 shadow-sm">
-                        第 <strong className="grad-brand">{currentPage}</strong> 頁，共 {totalPages} 頁
-                        <span className="text-slate-400 ml-2">/ {filteredData.length} 筆</span>
-                      </div>
-                      <button onClick={() => { setCurrentPage(p => Math.min(totalPages,p+1)); document.getElementById('scroll-container').scrollTo({top:0,behavior:'smooth'}); }}
-                        disabled={currentPage===totalPages}
-                        className="px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 font-bold hover:bg-slate-50 hover:text-brand disabled:opacity-40 transition-all shadow-sm text-sm">
-                        下一頁
-                      </button>
+                      <button onClick={() => { setCurrentPage(p => Math.max(1,p-1)); document.getElementById('scroll-container').scrollTo({top:0,behavior:'smooth'}); }} disabled={currentPage===1} className="px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 font-bold hover:bg-slate-50 hover:text-brand disabled:opacity-40 transition-all shadow-sm text-sm">上一頁</button>
+                      <div className="text-slate-500 font-medium text-sm bg-white px-4 py-2.5 rounded-xl border border-slate-100 shadow-sm">第 <strong className="grad-brand">{currentPage}</strong> 頁，共 {totalPages} 頁<span className="text-slate-400 ml-2">/ {filteredData.length} 筆</span></div>
+                      <button onClick={() => { setCurrentPage(p => Math.min(totalPages,p+1)); document.getElementById('scroll-container').scrollTo({top:0,behavior:'smooth'}); }} disabled={currentPage===totalPages} className="px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 font-bold hover:bg-slate-50 hover:text-brand disabled:opacity-40 transition-all shadow-sm text-sm">下一頁</button>
                     </div>
                   )}
-
-                  {filteredData.length === 0 && (
-                    <div className="col-span-full text-center py-24 text-slate-400 font-medium">找不到符合條件的網紅資料 🥲</div>
-                  )}
+                  {filteredData.length === 0 && <div className="col-span-full text-center py-24 text-slate-400 font-medium">找不到符合條件的網紅資料 🥲</div>}
                 </div>
               )}
             </div>
@@ -970,7 +914,7 @@
       );
     }
 
-// ============================================================
+    // ============================================================
     // 🃏 CREATOR CARD
     // ============================================================
     function CreatorCard({ data, onClick, isSelected, onToggleSelect }) {
@@ -983,17 +927,22 @@
       const displaySocialsObj = mergeDisplaySocials(data);
 
       return (
-        // ✅ 修改 1：移除了 card-shimmer 類別，解除卡片的 overflow: hidden 封印
         <div onClick={onClick} className={`bg-white/80 backdrop-blur-xl border ${isSelected ? 'border-brand shadow-[0_0_0_2px_rgba(225,79,75,0.2)]' : 'border-slate-100 hover:border-brand/20 hover:shadow-[0_16px_48px_rgba(225,79,75,0.10)]'} hover:-translate-y-1.5 transition-all duration-300 rounded-[1.5rem] cursor-pointer flex flex-col p-4 relative group animate-fade-in`}>
           
-          {/* 🛒 新增：左上角像 iOS 一樣稍微突出的選取勾勾 */}
-          <div onClick={onToggleSelect} className="absolute top-[-8px] left-[-8px] z-30 p-1.5 rounded-full hover:scale-110 transition-transform cursor-pointer group/check">
-            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all shadow-sm ${isSelected ? 'bg-brand border-brand text-white shadow-brand/30' : 'bg-white border-slate-300 text-transparent group-hover/check:border-brand/50'}`}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          <div className="absolute inset-0 rounded-[1.5rem] overflow-hidden pointer-events-none z-10">
+            <div className="absolute top-0 left-[-100%] w-[60%] h-full bg-gradient-to-r from-transparent via-white/50 to-transparent group-hover:left-[150%] transition-all duration-500 ease-in-out"></div>
+          </div>
+
+          {/* 🛒 修改：更精緻的「＋」或「✓」選取按鈕 */}
+          <div onClick={onToggleSelect} className="absolute top-[-6px] left-[-6px] z-30 p-1.5 rounded-full hover:scale-110 transition-transform cursor-pointer group/check">
+            <div className={`w-5 h-5 rounded-full flex items-center justify-center transition-all shadow-sm ${isSelected ? 'bg-brand text-white shadow-brand/30 border border-brand' : 'bg-slate-100 border border-slate-200 text-slate-400 group-hover/check:bg-brand/10 group-hover/check:text-brand group-hover/check:border-brand/30'}`}>
+              {isSelected 
+                ? <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              }
             </div>
           </div>
 
-          {/* 下面這行是原本就有的，用來對齊位置 */}
           <div className="absolute top-4 right-4 z-20 group/tip cursor-help">
             <span className="relative flex h-3 w-3">
               {profileOutdated && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>}
@@ -1005,8 +954,7 @@
           </div>
 
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 rounded-[14px] shrink-0 overflow-hidden border-2 border-white shadow-[0_4px_12px_rgba(225,79,75,0.2)]"
-              style={{ background: 'linear-gradient(135deg, #E14f4b 0%, #c75551 100%)' }}>
+            <div className="w-12 h-12 rounded-[14px] shrink-0 overflow-hidden border-2 border-white shadow-[0_4px_12px_rgba(225,79,75,0.2)]" style={{ background: 'linear-gradient(135deg, #E14f4b 0%, #c75551 100%)' }}>
               {data?.avatar_url
                 ? <img src={data.avatar_url} alt={data.name} className="w-full h-full object-cover" />
                 : <div className="w-full h-full flex items-center justify-center text-white font-black text-lg">{getInitials(data?.name)}</div>}
@@ -1015,16 +963,12 @@
               <h2 className="text-sm font-black truncate text-slate-800 group-hover:grad-brand transition-colors">{data?.name}</h2>
               <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
                 <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest border ${tier.color}`}>{tier.label}</span>
-                
                 <div className="flex items-center gap-1 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-200 group/foll relative cursor-help hover:border-slate-300 transition-colors">
-                  <span className="text-[9px] font-bold text-slate-400">最高粉絲數</span>
-                  <span className="text-[10px] font-black text-slate-700">{formatFollowers(data?.followers)}</span>
-                  <Icon name="info" size={10} className="text-slate-400" />
+                  <span className="text-[9px] font-bold text-slate-400">最高粉絲數</span><span className="text-[10px] font-black text-slate-700">{formatFollowers(data?.followers)}</span><Icon name="info" size={10} className="text-slate-400" />
                   <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-max max-w-[220px] p-2.5 bg-slate-900 text-white text-[10px] rounded-lg opacity-0 group-hover/foll:opacity-100 transition-opacity pointer-events-none shadow-xl z-30 font-medium leading-relaxed text-center">
                     💡 此為建檔/更新時的靜態數據，最新粉絲數請點擊網紅社群連結確認。
                   </div>
                 </div>
-
                 {data?.user_id && <span className="text-[11px] text-slate-400 truncate font-medium ml-1">@{data.user_id}</span>}
               </div>
             </div>
@@ -1033,37 +977,24 @@
           <div className="flex gap-2 mb-3">
             <div className="bg-slate-50/80 w-full rounded-2xl p-2 border border-slate-100 flex flex-col justify-between">
               <div className="flex justify-evenly px-1 mb-1 mt-0.5">
-                <div className="text-center w-full">
-                  <div className="text-[9px] text-slate-400 font-black uppercase tracking-wider mb-0.5">分潤</div>
-                  <div className={`font-black text-sm ${(!data?.commission_rate || data.commission_rate==='無') ? 'text-slate-400' : 'grad-brand'}`}>{data?.commission_rate||'-'}</div>
-                </div>
+                <div className="text-center w-full"><div className="text-[9px] text-slate-400 font-black uppercase tracking-wider mb-0.5">分潤</div><div className={`font-black text-sm ${(!data?.commission_rate || data.commission_rate==='無') ? 'text-slate-400' : 'grad-brand'}`}>{data?.commission_rate||'-'}</div></div>
                 <div className="w-px h-6 bg-slate-200 mx-2 self-center"></div>
-                <div className="text-center w-full">
-                  <div className="text-[9px] text-slate-400 font-black uppercase tracking-wider mb-0.5">保底</div>
-                  <div className="font-black text-sm text-slate-700">{data?.base_fee||'-'}</div>
-                </div>
+                <div className="text-center w-full"><div className="text-[9px] text-slate-400 font-black uppercase tracking-wider mb-0.5">保底</div><div className="font-black text-sm text-slate-700">{data?.base_fee||'-'}</div></div>
               </div>
-              <div className={`text-[9px] font-bold text-center pt-1 border-t border-slate-100 ${quoteOutdated ? 'text-red-500' : 'text-slate-400'}`}>
-                報價更新: {data?.quote_updated_date||'未紀錄'} {quoteOutdated && '⚠️'}
-              </div>
+              <div className={`text-[9px] font-bold text-center pt-1 border-t border-slate-100 ${quoteOutdated ? 'text-red-500' : 'text-slate-400'}`}>報價更新: {data?.quote_updated_date||'未紀錄'} {quoteOutdated && '⚠️'}</div>
             </div>
           </div>
 
           {promoPlats.length > 0 && (
             <div className="mb-3 flex items-center gap-1.5 overflow-hidden">
               <span className="text-[10px] text-slate-400 font-bold shrink-0">開團於:</span>
-              <div className="flex items-center gap-1 overflow-hidden">
-                {promoPlats.map((p, i) => (
-                  <span key={i} className="text-[10px] font-black text-brand bg-brand/10 px-1.5 py-0.5 rounded truncate">{p}</span>
-                ))}
-              </div>
+              <div className="flex items-center gap-1 overflow-hidden">{promoPlats.map((p, i) => <span key={i} className="text-[10px] font-black text-brand bg-brand/10 px-1.5 py-0.5 rounded truncate">{p}</span>)}</div>
             </div>
           )}
 
           {data?.extra_platforms && typeof data.extra_platforms === 'string' && (
             <div className="mb-3 flex items-center gap-2 bg-slate-50 border border-slate-100 p-1.5 px-2.5 rounded-lg text-[11px] font-bold text-slate-600 w-full min-w-0">
-              <Icon name="link" size={12} className="text-slate-400 shrink-0" />
-              <div className="truncate flex-1 text-slate-500">{data.extra_platforms.split('\n')[0]}</div>
+              <Icon name="link" size={12} className="text-slate-400 shrink-0" /><div className="truncate flex-1 text-slate-500">{data.extra_platforms.split('\n')[0]}</div>
             </div>
           )}
 
@@ -1072,22 +1003,14 @@
               <div className="absolute right-0 top-0 bottom-[4px] w-8 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none rounded-r-xl"></div>
               <div className="bg-slate-50 border border-slate-100 rounded-xl p-1.5">
                 <div className="flex items-center gap-1.5 overflow-x-auto thin-scrollbar pb-1 pr-6 cursor-ew-resize">
-                  {collabTags.length > 0 ? collabTags.map((tag, i) => (
-                    <span key={i} className="shrink-0 px-2.5 py-1 bg-white text-slate-600 border border-slate-200 rounded-lg text-[10px] font-black whitespace-nowrap hover:border-brand/30 hover:text-brand transition-colors">
-                      {tag}
-                    </span>
-                  )) : <span className="text-[10px] text-slate-300 font-bold px-1 whitespace-nowrap">無標籤</span>}
+                  {collabTags.length > 0 ? collabTags.map((tag, i) => <span key={i} className="shrink-0 px-2.5 py-1 bg-white text-slate-600 border border-slate-200 rounded-lg text-[10px] font-black whitespace-nowrap hover:border-brand/30 hover:text-brand transition-colors">{tag}</span>) : <span className="text-[10px] text-slate-300 font-bold px-1 whitespace-nowrap">無標籤</span>}
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               {data?.email && <a href={`mailto:${data.email}`} onClick={e=>e.stopPropagation()} className="hover:scale-110 hover:-translate-y-0.5 transition-all text-slate-400 hover:text-brand" title={`發送 Email: ${data.email}`}><Icon name="mail" size={18} /></a>}
               {data?.instagram_url && <a href={data.instagram_url} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} className="hover:scale-110 hover:-translate-y-0.5 transition-all"><IconInstagram /></a>}
-              {Object.entries(displaySocialsObj).map(([platform, url], i) => (
-                url
-                  ? <a key={i} href={url} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} className="hover:scale-110 hover:-translate-y-0.5 transition-all" title={platform}>{getSocialIcon(platform)}</a>
-                  : <span key={i} className="opacity-30 grayscale cursor-help" title={`${platform} (未提供連結)`} onClick={e=>e.stopPropagation()}>{getSocialIcon(platform)}</span>
-              ))}
+              {Object.entries(displaySocialsObj).map(([platform, url], i) => url ? <a key={i} href={url} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} className="hover:scale-110 hover:-translate-y-0.5 transition-all" title={platform}>{getSocialIcon(platform)}</a> : <span key={i} className="opacity-30 grayscale cursor-help" title={`${platform} (未提供連結)`} onClick={e=>e.stopPropagation()}>{getSocialIcon(platform)}</span>)}
               {data?.reference_link && <a href={data.reference_link} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} className="hover:scale-110 hover:-translate-y-0.5 transition-all text-amber-500"><Icon name="bookmark" size={18} stroke="#f59e0b" strokeWidth={2.5} /></a>}
               {data?.anytag_url && <a href={data.anytag_url} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} className="text-slate-400 hover:text-brand hover:scale-110 transition-all"><Icon name="external" size={12} /></a>}
             </div>
@@ -1113,36 +1036,20 @@
             <div className="sidebar-top-accent rounded-t-3xl" />
             <div className="sticky top-0 p-4 flex justify-end gap-2 bg-gradient-to-b from-white/95 to-transparent z-10 pointer-events-none">
               <div className="pointer-events-auto flex gap-2">
-                {/* 🛡️ RBAC: 只有 Admin 可以看到刪除按鈕 */}
-                {userRole === 'admin' && (
-                  <button onClick={onDelete} className="flex items-center gap-1.5 px-4 py-2 bg-white border border-red-200 hover:bg-red-50 hover:border-red-400 text-red-600 rounded-full text-sm font-bold shadow-sm transition-all"><Icon name="trash" size={14} /> 刪除</button>
-                )}
-                {/* 🛡️ RBAC: Admin 和 Editor 可以看到編輯按鈕，Viewer 看不到 */}
-                {['admin', 'editor'].includes(userRole) && (
-                  <button onClick={onEdit} className="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 hover:border-brand hover:text-brand text-slate-600 rounded-full text-sm font-bold shadow-sm transition-all"><Icon name="edit" size={14} /> 編輯</button>
-                )}
+                {userRole === 'admin' && <button onClick={onDelete} className="flex items-center gap-1.5 px-4 py-2 bg-white border border-red-200 hover:bg-red-50 hover:border-red-400 text-red-600 rounded-full text-sm font-bold shadow-sm transition-all"><Icon name="trash" size={14} /> 刪除</button>}
+                {['admin', 'editor'].includes(userRole) && <button onClick={onEdit} className="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 hover:border-brand hover:text-brand text-slate-600 rounded-full text-sm font-bold shadow-sm transition-all"><Icon name="edit" size={14} /> 編輯</button>}
                 <button onClick={onClose} className="p-2 bg-slate-800 text-white hover:bg-slate-700 rounded-full shadow-sm transition-all"><Icon name="x" size={18} /></button>
               </div>
             </div>
 
             <div className="px-8 pb-8 pt-2">
               <div className="flex items-end gap-6 mb-8 pb-8 border-b border-slate-100 relative">
-                {profileOutdated && (
-                  <div className="absolute top-0 left-0 bg-amber-50 text-amber-700 text-xs font-bold px-3 py-1.5 rounded-full border border-amber-200 flex items-center gap-1.5 shadow-sm">
-                    <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span></span>
-                    粉絲數可能已過期（最後更新: {lastUpdatedText}）
-                  </div>
-                )}
+                {profileOutdated && <div className="absolute top-0 left-0 bg-amber-50 text-amber-700 text-xs font-bold px-3 py-1.5 rounded-full border border-amber-200 flex items-center gap-1.5 shadow-sm"><span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span></span>粉絲數可能已過期（最後更新: {lastUpdatedText}）</div>}
                 <div className={profileOutdated ? 'mt-10' : ''}>
-                  {data.avatar_url
-                    ? <img src={data.avatar_url} alt={data.name} className="w-24 h-24 rounded-2xl object-cover shadow-lg border-4 border-white" />
-                    : <div className="w-24 h-24 rounded-2xl border-4 border-white flex items-center justify-center text-3xl font-black text-white shadow-lg" style={{background:'linear-gradient(135deg,#E14f4b,#c75551)'}}>{getInitials(data.name)}</div>}
+                  {data.avatar_url ? <img src={data.avatar_url} alt={data.name} className="w-24 h-24 rounded-2xl object-cover shadow-lg border-4 border-white" /> : <div className="w-24 h-24 rounded-2xl border-4 border-white flex items-center justify-center text-3xl font-black text-white shadow-lg" style={{background:'linear-gradient(135deg,#E14f4b,#c75551)'}}>{getInitials(data.name)}</div>}
                 </div>
                 <div className={profileOutdated ? 'mt-10' : ''}>
-                  <div className="flex items-center gap-3 mb-2">
-                    <h2 className="text-2xl font-black grad-brand">{data.name}</h2>
-                    <span className={`px-3 py-1 rounded-xl text-xs font-black uppercase border ${tier.color}`}>{tier.label}</span>
-                  </div>
+                  <div className="flex items-center gap-3 mb-2"><h2 className="text-2xl font-black grad-brand">{data.name}</h2><span className={`px-3 py-1 rounded-xl text-xs font-black uppercase border ${tier.color}`}>{tier.label}</span></div>
                   <p className="text-slate-500 font-semibold">@{data.user_id}</p>
                 </div>
               </div>
@@ -1151,18 +1058,10 @@
                 <div className="space-y-6">
                   <div>
                     <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.12em] mb-3">Metrics</h3>
-                    {/* ✅ 詳細頁面的粉絲數也加上 (i) 提示 */}
                     <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100 flex justify-between items-center group/foll relative">
-                      <div className="flex items-center gap-1.5 cursor-help">
-                        <span className="text-slate-500 text-sm font-bold">最高粉絲數</span>
-                        <Icon name="info" size={15} className="text-slate-400" />
-                      </div>
+                      <div className="flex items-center gap-1.5 cursor-help"><span className="text-slate-500 text-sm font-bold">最高粉絲數</span><Icon name="info" size={15} className="text-slate-400" /></div>
                       <span className="font-black text-xl grad-dark">{Number(String(data.followers).replace(/,/g,'')).toLocaleString()}</span>
-                      
-                      {/* Tooltip */}
-                      <div className="absolute left-5 bottom-full mb-2 w-max max-w-[240px] p-2.5 bg-slate-900 text-white text-[10px] rounded-lg opacity-0 group-hover/foll:opacity-100 transition-opacity pointer-events-none shadow-xl z-30 font-medium leading-relaxed">
-                        💡 此為建檔/更新時的靜態數據，最新粉絲數請以實際社群平台為準。
-                      </div>
+                      <div className="absolute left-5 bottom-full mb-2 w-max max-w-[240px] p-2.5 bg-slate-900 text-white text-[10px] rounded-lg opacity-0 group-hover/foll:opacity-100 transition-opacity pointer-events-none shadow-xl z-30 font-medium leading-relaxed">💡 此為建檔/更新時的靜態數據，最新粉絲數請以實際社群平台為準。</div>
                     </div>
                   </div>
                   <div>
@@ -1170,10 +1069,7 @@
                     <div className="bg-slate-50 rounded-2xl p-5 space-y-4 border border-slate-100">
                       <div className="flex justify-between items-center"><span className="text-slate-500 text-sm font-bold">預計分潤</span><span className="font-black text-lg grad-brand">{data.commission_rate||'無'}</span></div>
                       <div className="flex justify-between items-center"><span className="text-slate-500 text-sm font-bold">保底費用</span><span className="font-black text-lg text-slate-800">{data.base_fee||'無'}</span></div>
-                      <div className="pt-3 border-t border-slate-200 flex justify-between items-center">
-                        <span className="text-xs text-slate-400 font-bold">報價更新</span>
-                        <span className={`text-xs font-black px-2.5 py-1 rounded-lg ${quoteOutdated ? 'bg-red-100 text-red-600' : 'bg-slate-200 text-slate-600'}`}>{data.quote_updated_date||'未填'} {quoteOutdated && '⚠️'}</span>
-                      </div>
+                      <div className="pt-3 border-t border-slate-200 flex justify-between items-center"><span className="text-xs text-slate-400 font-bold">報價更新</span><span className={`text-xs font-black px-2.5 py-1 rounded-lg ${quoteOutdated ? 'bg-red-100 text-red-600' : 'bg-slate-200 text-slate-600'}`}>{data.quote_updated_date||'未填'} {quoteOutdated && '⚠️'}</span></div>
                     </div>
                   </div>
                   <div>
@@ -1190,43 +1086,15 @@
                   <div>
                     <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.12em] mb-3">Contact & Links</h3>
                     <div className="space-y-2.5">
-                      {data.email && (
-                        <a href={`mailto:${data.email}`} className="flex items-center gap-3 text-sm font-bold text-slate-700 bg-white p-3.5 rounded-2xl border-2 border-slate-200 hover:border-brand/30 hover:shadow-md hover:-translate-y-0.5 transition-all">
-                          <span className="w-5 h-5 flex items-center justify-center text-slate-400"><Icon name="mail" size={20} /></span>
-                          {data.email}
-                        </a>
-                      )}
-                      
+                      {data.email && <a href={`mailto:${data.email}`} className="flex items-center gap-3 text-sm font-bold text-slate-700 bg-white p-3.5 rounded-2xl border-2 border-slate-200 hover:border-brand/30 hover:shadow-md hover:-translate-y-0.5 transition-all"><span className="w-5 h-5 flex items-center justify-center text-slate-400"><Icon name="mail" size={20} /></span>{data.email}</a>}
                       {data.instagram_url && <a href={data.instagram_url} target="_blank" rel="noreferrer" className="flex items-center gap-3 text-sm font-bold text-slate-700 bg-slate-50 p-3.5 rounded-2xl border border-slate-100 hover:shadow-md hover:-translate-y-0.5 transition-all"><IconInstagram /> Instagram</a>}
-                      
-                      {Object.entries(displaySocialsObj).map(([platform,url],i) => (
-                        url
-                          ? <a key={i} href={url} target="_blank" rel="noreferrer" className="flex items-center gap-3 text-sm font-bold text-slate-700 bg-slate-50 p-3.5 rounded-2xl border border-slate-100 hover:shadow-md hover:-translate-y-0.5 transition-all"><span className="w-5 h-5 flex items-center justify-center">{getSocialIcon(platform)}</span>{platform}</a>
-                          : <div key={i} className="flex items-center gap-3 text-sm font-bold text-slate-400 bg-slate-50 p-3.5 rounded-2xl border border-slate-100 cursor-not-allowed"><span className="grayscale opacity-50 w-5 h-5 flex items-center justify-center">{getSocialIcon(platform)}</span>{platform} (未提供網址)</div>
-                      ))}
-
+                      {Object.entries(displaySocialsObj).map(([platform,url],i) => url ? <a key={i} href={url} target="_blank" rel="noreferrer" className="flex items-center gap-3 text-sm font-bold text-slate-700 bg-slate-50 p-3.5 rounded-2xl border border-slate-100 hover:shadow-md hover:-translate-y-0.5 transition-all"><span className="w-5 h-5 flex items-center justify-center">{getSocialIcon(platform)}</span>{platform}</a> : <div key={i} className="flex items-center gap-3 text-sm font-bold text-slate-400 bg-slate-50 p-3.5 rounded-2xl border border-slate-100 cursor-not-allowed"><span className="grayscale opacity-50 w-5 h-5 flex items-center justify-center">{getSocialIcon(platform)}</span>{platform} (未提供網址)</div>)}
                       {data.reference_link && <a href={data.reference_link} target="_blank" rel="noreferrer" className="flex items-center gap-3 text-sm font-bold text-slate-700 bg-amber-50 p-3.5 rounded-2xl border border-amber-100 hover:shadow-md hover:-translate-y-0.5 transition-all"><Icon name="bookmark" size={18} stroke="#f59e0b" strokeWidth={2.5} /> 參考貼文</a>}
                       {data.anytag_url && <a href={data.anytag_url} target="_blank" rel="noreferrer" className="flex items-center gap-3 text-sm font-black text-brand bg-brand/5 p-3.5 rounded-2xl border border-brand/15 hover:shadow-md hover:-translate-y-0.5 transition-all"><Icon name="external" size={14} className="text-brand" /> AnyTag Profile</a>}
                     </div>
                   </div>
-                  
-                  {data.extra_platforms && (
-                    <div>
-                      <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.12em] mb-3">額外曝光管道</h3>
-                      <div className="text-sm text-slate-700 font-semibold bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-start gap-3">
-                        <Icon name="link" size={16} className="text-slate-400 shrink-0 mt-0.5" />
-                        <div className="whitespace-pre-wrap leading-relaxed break-words space-y-1">{renderLinks(data.extra_platforms)}</div>
-                      </div>
-                    </div>
-                  )}
-                  {data.notes && (
-                    <div>
-                      <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.12em] mb-3">Notes</h3>
-                      <div className="text-sm text-slate-700 font-medium whitespace-pre-wrap leading-relaxed bg-amber-50 p-5 rounded-2xl border border-amber-100 flex gap-3">
-                        <Icon name="info" size={16} className="text-amber-400 shrink-0 mt-0.5" /><div>{data.notes}</div>
-                      </div>
-                    </div>
-                  )}
+                  {data.extra_platforms && <div><h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.12em] mb-3">額外曝光管道</h3><div className="text-sm text-slate-700 font-semibold bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-start gap-3"><Icon name="link" size={16} className="text-slate-400 shrink-0 mt-0.5" /><div className="whitespace-pre-wrap leading-relaxed break-words space-y-1">{renderLinks(data.extra_platforms)}</div></div></div>}
+                  {data.notes && <div><h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.12em] mb-3">Notes</h3><div className="text-sm text-slate-700 font-medium whitespace-pre-wrap leading-relaxed bg-amber-50 p-5 rounded-2xl border border-amber-100 flex gap-3"><Icon name="info" size={16} className="text-amber-400 shrink-0 mt-0.5" /><div>{data.notes}</div></div></div>}
                 </div>
               </div>
             </div>
@@ -1321,7 +1189,6 @@
           return;
         }
 
-        // ✅ 網址格式嚴格防呆 (確保有 https://)
         const allInputUrls = [
           formData.instagram_url,
           ...Object.values(otherSocialsObj)
@@ -1356,9 +1223,7 @@
           await onSave(payload, isEditing, initialData?.id);
         } catch (err) {
           console.error("Form Submit Failed:", err);
-        } finally { 
-          setIsSaving(false); 
-        }
+        } finally { setIsSaving(false); }
       };
 
       const bookmarkletCode = `javascript:(function()%7Bvar%20html=document.documentElement.innerHTML;var%20match=html.match(/https:%5C/%5C/storage%5C.googleapis%5C.com%5C/ca-avatar%5C/%5B%5E%22'%5Cs%5C)%5D+/);if(match)%7Bvar%20url=match%5B0%5D.replace(/&quot;/g,%22%22);navigator.clipboard.writeText(url).then(function()%7Balert('%E2%9C%85%20%E6%8A%93%E5%8F%96%E6%88%90%E5%8A%9F%EF%BC%81%E7%B6%B2%E5%9D%80%E5%B7%B2%E8%A4%87%E8%A3%BD%E5%88%B0%E5%89%AA%E8%B2%BC%E7%B0%BF%EF%BC%9A%5Cn%5Cn'+url);%7D).catch(function()%7Bprompt('%E8%AB%8B%E6%89%8B%E5%8B%95%E8%A4%87%E8%A3%BD%EF%BC%9A',url);%7D);%7Delse%7Balert('%E2%9D%8C%20%E6%89%BE%E4%B8%8D%E5%88%B0%E9%A0%AD%E8%B2%BC%E7%B6%B2%E5%9D%80');%7D%7D)();`;
@@ -1374,24 +1239,15 @@
 
             <form id="creatorForm" onSubmit={handleSubmit} noValidate className="flex flex-col flex-1 overflow-hidden min-h-0">
               <div className="p-8 overflow-y-auto flex-1 no-scrollbar space-y-8">
-
                 <div className="space-y-5">
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="bg-brand/10 text-brand text-xs font-black px-2 py-1 rounded-lg">區塊 A</span>
-                    <h3 className="font-black text-slate-800">基本資料</h3>
+                    <span className="bg-brand/10 text-brand text-xs font-black px-2 py-1 rounded-lg">區塊 A</span><h3 className="font-black text-slate-800">基本資料</h3>
                   </div>
-
-                  <FormField label="Instagram 網址" hint="💡 與其他社群平台擇一填寫" required colSpan2>
-                    <input type="text" placeholder="https://instagram.com/..." value={formData.instagram_url} onChange={handleIgChange} className={inputCls} />
-                  </FormField>
-
+                  <FormField label="Instagram 網址" hint="💡 與其他社群平台擇一填寫" required colSpan2><input type="text" placeholder="https://instagram.com/..." value={formData.instagram_url} onChange={handleIgChange} className={inputCls} /></FormField>
                   <FormField label="其他社群平台網址" hint="💡 與Instagram網址擇一填寫" required colSpan2>
                     <div ref={socialsRef} className="relative mb-3">
-                      <div onClick={() => setShowSocialsDD(!showSocialsDD)}
-                        className={`${inputCls} cursor-pointer flex justify-between items-center ${showSocialsDD ? 'ring-2 ring-brand/30 border-brand' : ''}`}>
-                        <span className={Object.keys(otherSocialsObj).length > 0 ? "text-slate-800 font-bold truncate pr-2" : "text-slate-400"}>
-                          {Object.keys(otherSocialsObj).length > 0 ? Object.keys(otherSocialsObj).join(', ') : '新增 YouTube, TikTok, Threads...'}
-                        </span>
+                      <div onClick={() => setShowSocialsDD(!showSocialsDD)} className={`${inputCls} cursor-pointer flex justify-between items-center ${showSocialsDD ? 'ring-2 ring-brand/30 border-brand' : ''}`}>
+                        <span className={Object.keys(otherSocialsObj).length > 0 ? "text-slate-800 font-bold truncate pr-2" : "text-slate-400"}>{Object.keys(otherSocialsObj).length > 0 ? Object.keys(otherSocialsObj).join(', ') : '新增 YouTube, TikTok, Threads...'}</span>
                         <span className={`text-slate-400 transition-transform ${showSocialsDD ? 'rotate-180' : ''}`}><Icon name="chevdown" size={18} /></span>
                       </div>
                       {showSocialsDD && (
@@ -1400,45 +1256,28 @@
                             const checked = otherSocialsObj.hasOwnProperty(opt);
                             return (
                               <label key={opt} className={`flex items-center gap-2 text-sm font-bold cursor-pointer p-2.5 rounded-xl transition-all ${checked ? 'bg-brand/10 text-brand' : 'text-slate-600 hover:bg-slate-50'}`}>
-                                <input type="checkbox" checked={checked} onChange={e => handleSocialCheck(opt, e.target.checked)} className="rounded border-slate-300 text-brand focus:ring-brand h-4 w-4 shrink-0" />
-                                <span className="truncate">{opt}</span>
+                                <input type="checkbox" checked={checked} onChange={e => handleSocialCheck(opt, e.target.checked)} className="rounded border-slate-300 text-brand focus:ring-brand h-4 w-4 shrink-0" /><span className="truncate">{opt}</span>
                               </label>
                             );
                           })}
                         </div>
                       )}
                     </div>
-                    
                     {Object.keys(otherSocialsObj).length > 0 && (
                       <div className="space-y-2.5 p-4 bg-slate-50 border border-slate-100 rounded-2xl mb-3">
                         <div className="text-xs font-bold text-slate-400 mb-2 flex items-center gap-1.5"><Icon name="info" size={14} /> 貼上對應平台網址：</div>
                         {Object.keys(otherSocialsObj).map(opt => (
-                          <div key={opt} className="flex items-center gap-3 animate-fade-in">
-                            <div className="w-24 shrink-0 text-xs font-bold text-slate-600 text-right">{opt}</div>
-                            <input type="text" placeholder="https://..." value={otherSocialsObj[opt]} onChange={e => handleSocialUrl(opt, e.target.value)} className={inputCls} />
-                          </div>
+                          <div key={opt} className="flex items-center gap-3 animate-fade-in"><div className="w-24 shrink-0 text-xs font-bold text-slate-600 text-right">{opt}</div><input type="text" placeholder="https://..." value={otherSocialsObj[opt]} onChange={e => handleSocialUrl(opt, e.target.value)} className={inputCls} /></div>
                         ))}
                       </div>
                     )}
                   </FormField>
-
-                  <FormField label="額外曝光管道" hint="💡 不同管道網址請直接換行貼上" hintStyle="gray" colSpan2>
-                    <textarea rows="3" placeholder="💡 例：Line社群、FB私密社團、7-11賣貨便等... 請直接換行貼上不同管道的網址或說明" value={formData.extra_platforms||''} onChange={e => setFormData({...formData, extra_platforms:e.target.value})} className={`${inputCls} resize-none leading-relaxed border-dashed`} />
-                  </FormField>
-
+                  <FormField label="額外曝光管道" hint="💡 不同管道網址請直接換行貼上" hintStyle="gray" colSpan2><textarea rows="3" placeholder="💡 例：Line社群、FB私密社團、7-11賣貨便等... 請直接換行貼上不同管道的網址或說明" value={formData.extra_platforms||''} onChange={e => setFormData({...formData, extra_platforms:e.target.value})} className={`${inputCls} resize-none leading-relaxed border-dashed`} /></FormField>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <FormField label="網紅姓名" required>
-                      <input type="text" value={formData.name} onChange={e => setFormData({...formData, name:e.target.value})} className={inputCls} />
-                    </FormField>
-                    <FormField label="粉絲數" hint="💡 填寫最高平台數字" required>
-                      <input type="text" placeholder="例：150000" value={formData.followers} onChange={e => setFormData({...formData, followers:e.target.value})} className={inputCls} />
-                    </FormField>
+                    <FormField label="網紅姓名" required><input type="text" value={formData.name} onChange={e => setFormData({...formData, name:e.target.value})} className={inputCls} /></FormField>
+                    <FormField label="粉絲數" hint="💡 填寫最高平台數字" required><input type="text" placeholder="例：150000" value={formData.followers} onChange={e => setFormData({...formData, followers:e.target.value})} className={inputCls} /></FormField>
                   </div>
-                  
-                  <FormField label="Email 聯絡信箱" colSpan2>
-                    <input type="text" placeholder="hello@example.com" value={formData.email||''} onChange={e => setFormData({...formData, email:e.target.value})} className={inputCls} />
-                  </FormField>
-
+                  <FormField label="Email 聯絡信箱" colSpan2><input type="text" placeholder="hello@example.com" value={formData.email||''} onChange={e => setFormData({...formData, email:e.target.value})} className={inputCls} /></FormField>
                   <FormField label="內容分類 (複選)" colSpan2>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-slate-50 p-4 rounded-2xl border border-slate-100">
                       {categories.map(cat => {
@@ -1449,35 +1288,24 @@
                               let cats = formData.category ? formData.category.split(',').map(s=>s.trim()).filter(Boolean) : [];
                               if (e.target.checked) cats.push(cat.name); else cats = cats.filter(c => c !== cat.name);
                               setFormData({...formData, category: cats.join(', ')});
-                            }} className="rounded border-slate-300 text-brand focus:ring-brand h-4 w-4" />
-                            <span className="truncate">{cat.name}</span>
+                            }} className="rounded border-slate-300 text-brand focus:ring-brand h-4 w-4" /><span className="truncate">{cat.name}</span>
                           </label>
                         );
                       })}
                     </div>
                   </FormField>
-
-                  <FormField label="帳號 ID" hint="💡 可手動編輯" required colSpan2>
-                    <input type="text" placeholder="有填IG會自動帶入，無IG則自動填N/A" value={formData.user_id} onChange={e => setFormData({...formData, user_id:e.target.value})} className={inputCls} />
-                  </FormField>
+                  <FormField label="帳號 ID" hint="💡 可手動編輯" required colSpan2><input type="text" placeholder="有填IG會自動帶入，無IG則自動填N/A" value={formData.user_id} onChange={e => setFormData({...formData, user_id:e.target.value})} className={inputCls} /></FormField>
                 </div>
 
                 <hr className="border-slate-100" />
-
-                {/* Block B */}
                 <div>
-                  <button type="button" onClick={() => setShowAdvanced(!showAdvanced)}
-                    className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-white border border-slate-100 rounded-2xl transition-all shadow-sm">
-                    <div className="flex items-center gap-3">
-                      <span className="bg-slate-200 text-slate-600 text-xs font-black px-2 py-1 rounded-lg">區塊 B</span>
-                      <span className="font-black text-slate-700">進階商業資訊 (選填)</span>
-                    </div>
+                  <button type="button" onClick={() => setShowAdvanced(!showAdvanced)} className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-white border border-slate-100 rounded-2xl transition-all shadow-sm">
+                    <div className="flex items-center gap-3"><span className="bg-slate-200 text-slate-600 text-xs font-black px-2 py-1 rounded-lg">區塊 B</span><span className="font-black text-slate-700">進階商業資訊 (選填)</span></div>
                     <Icon name={showAdvanced ? 'chevup' : 'chevdown'} size={18} className="text-slate-400" />
                   </button>
 
                   {showAdvanced && (
                     <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-5 animate-slide-down">
-                      
                       <FormField label="固定開團平台" hint="💡 通常在哪裡開團？(複選)" colSpan2>
                         <div className="flex flex-wrap gap-2 pt-1">
                           {PROMO_PLATFORM_OPTIONS.map(plat => {
@@ -1488,8 +1316,7 @@
                                   let plats = formData.promo_platforms ? formData.promo_platforms.split(',').map(s=>s.trim()).filter(Boolean) : [];
                                   if (e.target.checked) plats.push(plat); else plats = plats.filter(p=>p!==plat);
                                   setFormData({...formData, promo_platforms:plats.join(', ')});
-                                }} />
-                                {plat}
+                                }} />{plat}
                               </label>
                             );
                           })}
@@ -1498,8 +1325,7 @@
 
                       <FormField label="合作模式 Tags" colSpan2>
                         <div ref={collabRef} className="relative">
-                          <div onClick={() => setShowCollabDD(!showCollabDD)}
-                            className={`${inputCls} cursor-pointer flex justify-between items-center ${showCollabDD ? 'ring-2 ring-brand/30 border-brand' : ''}`}>
+                          <div onClick={() => setShowCollabDD(!showCollabDD)} className={`${inputCls} cursor-pointer flex justify-between items-center ${showCollabDD ? 'ring-2 ring-brand/30 border-brand' : ''}`}>
                             <span className={formData.collaboration_tags ? "text-slate-800 font-bold truncate pr-2" : "text-slate-400"}>{formData.collaboration_tags||'請選擇合作模式...'}</span>
                             <Icon name={showCollabDD ? 'chevup' : 'chevdown'} size={18} className="text-slate-400 shrink-0" />
                           </div>
@@ -1522,51 +1348,27 @@
                         </div>
                       </FormField>
 
-                      <FormField label="預計分潤比率">
-                        <input type="text" value={formData.commission_rate||''} onChange={e => setFormData({...formData, commission_rate:e.target.value})} className={inputCls} />
-                      </FormField>
-                      <FormField label="保底費用">
-                        <input type="text" value={formData.base_fee||''} onChange={e => setFormData({...formData, base_fee:e.target.value})} className={inputCls} />
-                      </FormField>
-                      <FormField label="最新更新時間">
-                        <input type="text" placeholder="例：2026.03" value={formData.quote_updated_date||''} onChange={e => setFormData({...formData, quote_updated_date:e.target.value})} className={inputCls} />
-                      </FormField>
+                      <FormField label="預計分潤比率"><input type="text" value={formData.commission_rate||''} onChange={e => setFormData({...formData, commission_rate:e.target.value})} className={inputCls} /></FormField>
+                      <FormField label="保底費用"><input type="text" value={formData.base_fee||''} onChange={e => setFormData({...formData, base_fee:e.target.value})} className={inputCls} /></FormField>
+                      <FormField label="最新更新時間"><input type="text" placeholder="例：2026.03" value={formData.quote_updated_date||''} onChange={e => setFormData({...formData, quote_updated_date:e.target.value})} className={inputCls} /></FormField>
                       
                       <FormField label="大頭貼網址" colSpan2>
                         <div className="flex gap-2">
                           <input type="text" value={formData.avatar_url} onChange={e => setFormData({...formData, avatar_url:e.target.value})} className={`${inputCls} flex-1`} />
-                          <button type="button" onClick={() => setShowAvatarHelp(!showAvatarHelp)} className="px-3 py-2 bg-brand/10 text-brand rounded-xl text-xs font-black flex items-center gap-1 hover:bg-brand/20 transition-colors shrink-0">
-                            <Icon name="help" size={13} /> 教學
-                          </button>
+                          <button type="button" onClick={() => setShowAvatarHelp(!showAvatarHelp)} className="px-3 py-2 bg-brand/10 text-brand rounded-xl text-xs font-black flex items-center gap-1 hover:bg-brand/20 transition-colors shrink-0"><Icon name="help" size={13} /> 教學</button>
                         </div>
                         {showAvatarHelp && (
                           <div className="mt-3 p-5 bg-slate-900 text-white rounded-2xl shadow-xl border border-slate-700">
-                            <h4 className="font-bold text-brand mb-1 flex items-center gap-2">🦊 如何抓取 AnyTag 頭貼URL？</h4>
-                            <p className="text-xs text-amber-300 font-bold mb-3 ml-6 opacity-90">💡 書籤只需安裝一次，之後可永久使用！</p>
-                            <ol className="text-sm space-y-1.5 text-slate-300 ml-5 list-decimal mb-4">
-                              <li>隨便把一個不相關的網頁存成瀏覽器書籤。</li>
-                              <li>編輯該書籤，名稱改為「抓頭貼」，網址替換為下方代碼。</li>
-                              <li>之後進到 AnyTag 網紅頁面，點擊書籤即可自動複製頭貼 URL！</li>
-                            </ol>
-                            <button type="button" onClick={() => { navigator.clipboard.writeText(bookmarkletCode).then(() => { alert('✅ 已複製！'); setShowAvatarHelp(false); }); }}
-                              className="w-full py-2.5 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-colors"
-                              style={{background:'linear-gradient(135deg,#E14f4b,#c75551)'}}>
-                              <Icon name="copy" size={14} /> 一鍵複製秘技代碼
-                            </button>
+                            <h4 className="font-bold text-brand mb-1 flex items-center gap-2">🦊 如何抓取 AnyTag 頭貼URL？</h4><p className="text-xs text-amber-300 font-bold mb-3 ml-6 opacity-90">💡 書籤只需安裝一次，之後可永久使用！</p>
+                            <ol className="text-sm space-y-1.5 text-slate-300 ml-5 list-decimal mb-4"><li>隨便把一個不相關的網頁存成瀏覽器書籤。</li><li>編輯該書籤，名稱改為「抓頭貼」，網址替換為下方代碼。</li><li>之後進到 AnyTag 網紅頁面，點擊書籤即可自動複製頭貼 URL！</li></ol>
+                            <button type="button" onClick={() => { navigator.clipboard.writeText(bookmarkletCode).then(() => { alert('✅ 已複製！'); setShowAvatarHelp(false); }); }} className="w-full py-2.5 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-colors" style={{background:'linear-gradient(135deg,#E14f4b,#c75551)'}}><Icon name="copy" size={14} /> 一鍵複製秘技代碼</button>
                           </div>
                         )}
                       </FormField>
 
-                      <FormField label="AnyTag Profile 網址">
-                        <input type="text" value={formData.anytag_url||''} onChange={e => setFormData({...formData, anytag_url:e.target.value})} className={inputCls} />
-                      </FormField>
-                      <FormField label="參考貼文連結">
-                        <input type="text" placeholder="https://..." value={formData.reference_link||''} onChange={e => setFormData({...formData, reference_link:e.target.value})} className={inputCls} />
-                      </FormField>
-
-                      <FormField label="備註 Notes" colSpan2>
-                        <textarea rows="3" placeholder="💡 例如：過往業績表現、合作注意事項、特殊禁忌..." value={formData.notes} onChange={e => setFormData({...formData, notes:e.target.value})} className={`${inputCls} resize-none`} />
-                      </FormField>
+                      <FormField label="AnyTag Profile 網址"><input type="text" value={formData.anytag_url||''} onChange={e => setFormData({...formData, anytag_url:e.target.value})} className={inputCls} /></FormField>
+                      <FormField label="參考貼文連結"><input type="text" placeholder="https://..." value={formData.reference_link||''} onChange={e => setFormData({...formData, reference_link:e.target.value})} className={inputCls} /></FormField>
+                      <FormField label="備註 Notes" colSpan2><textarea rows="3" placeholder="💡 例如：過往業績表現、合作注意事項、特殊禁忌..." value={formData.notes} onChange={e => setFormData({...formData, notes:e.target.value})} className={`${inputCls} resize-none`} /></FormField>
                     </div>
                   )}
                 </div>
@@ -1574,11 +1376,7 @@
 
               <div className="px-8 py-5 border-t border-slate-100 flex justify-end gap-3 bg-white/80 shrink-0">
                 <button type="button" onClick={onClose} disabled={isSaving} className="px-6 py-3 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-2xl transition-all disabled:opacity-50">取消</button>
-                <button type="submit" disabled={isSaving}
-                  className="px-8 py-3 text-sm font-black text-white rounded-2xl shadow-glow transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:translate-y-0 disabled:shadow-none"
-                  style={{background:'linear-gradient(135deg,#E14f4b 0%,#f0857f 50%,#c75551 100%)'}}>
-                  {isSaving ? '處理中...' : (isEditing ? '儲存變更' : '建立檔案')}
-                </button>
+                <button type="submit" disabled={isSaving} className="px-8 py-3 text-sm font-black text-white rounded-2xl shadow-glow transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:translate-y-0 disabled:shadow-none" style={{background:'linear-gradient(135deg,#E14f4b 0%,#f0857f 50%,#c75551 100%)'}}>{isSaving ? '處理中...' : (isEditing ? '儲存變更' : '建立檔案')}</button>
               </div>
             </form>
           </div>
@@ -1604,21 +1402,13 @@
       return (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[60] flex items-center justify-center p-4 animate-fade-in">
           <div className="bg-white rounded-[2rem] w-full max-w-sm p-8 shadow-2xl flex flex-col items-center text-center animate-zoom-in border border-slate-100">
-            <div className="w-16 h-16 rounded-full bg-red-50 text-red-500 flex items-center justify-center mb-5 border border-red-100">
-              <Icon name="triangle" size={28} stroke="#ef4444" strokeWidth={1.5} />
-            </div>
+            <div className="w-16 h-16 rounded-full bg-red-50 text-red-500 flex items-center justify-center mb-5 border border-red-100"><Icon name="triangle" size={28} stroke="#ef4444" strokeWidth={1.5} /></div>
             <h3 className="text-xl font-black text-slate-800 mb-3">確認刪除？</h3>
-            <p className="text-slate-500 text-sm mb-6 leading-relaxed">
-              即將永久刪除 <strong className="text-slate-800 font-black">{data.name}</strong> 的所有資料，此動作無法復原！
-            </p>
+            <p className="text-slate-500 text-sm mb-6 leading-relaxed">即將永久刪除 <strong className="text-slate-800 font-black">{data.name}</strong> 的所有資料，此動作無法復原！</p>
             {errorMsg && <div className="w-full mb-5 p-3 bg-red-50 border border-red-200 text-red-600 text-sm font-bold rounded-xl text-left whitespace-pre-wrap break-all">⚠️ {errorMsg}</div>}
             <div className="flex gap-3 w-full">
               <button onClick={onClose} disabled={isDeleting} className="flex-1 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-2xl transition-colors disabled:opacity-50">保留</button>
-              <button onClick={handleConfirm} disabled={isDeleting}
-                className="flex-1 py-3.5 text-white font-black rounded-2xl shadow-[0_4px_15px_rgba(220,38,38,0.3)] transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:translate-y-0"
-                style={{background:'linear-gradient(135deg,#dc2626,#b91c1c)'}}>
-                {isDeleting ? '刪除中...' : '確認刪除'}
-              </button>
+              <button onClick={handleConfirm} disabled={isDeleting} className="flex-1 py-3.5 text-white font-black rounded-2xl shadow-[0_4px_15px_rgba(220,38,38,0.3)] transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:translate-y-0" style={{background:'linear-gradient(135deg,#dc2626,#b91c1c)'}}>{isDeleting ? '刪除中...' : '確認刪除'}</button>
             </div>
           </div>
         </div>
@@ -1626,7 +1416,6 @@
     }
 
     const root = ReactDOM.createRoot(document.getElementById('root'));
-    // 🛡️ 將 App 用防護牆包裝起來
     root.render(<ErrorBoundary><App /></ErrorBoundary>);
   </script>
 </body>
