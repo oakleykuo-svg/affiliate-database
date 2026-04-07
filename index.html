@@ -359,12 +359,13 @@
     // 🟢 APP ROOT (包含 Auth 與 RBAC 邏輯)
     // ============================================================
     function App() {
-      // 🔐 Auth & Role States
+      // ---------------------------------------------------------
+      // 1. 所有 State (狀態) Hooks 區塊
+      // ---------------------------------------------------------
       const [session, setSession] = useState(null);
       const [userRole, setUserRole] = useState(null); // 'admin' | 'editor' | 'viewer' | 'unauthorized'
       const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
-      // Data States
       const [data, setData] = useState([]);
       const [categories, setCategories] = useState([]);
       const [isLoading, setIsLoading] = useState(true);
@@ -383,10 +384,11 @@
       const [creatorToDelete, setCreatorToDelete] = useState(null);
       const [isCategoriesOpen, setIsCategoriesOpen] = useState(false);
 
-      // 1. 初始化 Auth 監聽器
+      // ---------------------------------------------------------
+      // 2. 所有 Effect & Memo (副作用與計算) Hooks 區塊
+      // ---------------------------------------------------------
       useEffect(() => {
         if (!isRealMode) {
-          // 測試模式下：自動模擬身分為 Admin
           setSession({ user: { email: 'mock_user@example.com', user_metadata: { full_name: 'Mock Admin' } } });
           setUserRole('admin');
           setIsCheckingAuth(false);
@@ -410,14 +412,12 @@
           }
         };
 
-        // 取得初始 Session
         supabase.auth.getSession().then(({ data: { session } }) => {
           setSession(session);
           if (session?.user?.email) checkUserRole(session.user.email);
           else setIsCheckingAuth(false);
         });
 
-        // 監聽登入/登出變化
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
           setSession(session);
           if (session?.user?.email) checkUserRole(session.user.email);
@@ -427,7 +427,6 @@
         return () => subscription.unsubscribe();
       }, []);
 
-      // 2. 當權限驗證通過後，才去抓取真實資料
       useEffect(() => {
         if (isCheckingAuth) return;
         if (session && userRole && userRole !== 'unauthorized') {
@@ -435,6 +434,68 @@
         }
       }, [session, userRole, isCheckingAuth]);
 
+      // ✅ 關鍵修復：將重設頁碼的 Hook 搬移到所有 return 之上
+      useEffect(() => { 
+        setCurrentPage(1); 
+      }, [searchTerm, selectedCategory, advFilters, sortBy]);
+
+      // ✅ 關鍵修復：將資料篩選計算的 Hook 搬移到所有 return 之上
+      const safeData = Array.isArray(data) ? data : [];
+      const filteredData = useMemo(() => {
+        return safeData.filter(item => {
+          if (!item) return false;
+          const s = searchTerm.trim().toLowerCase();
+          if (s) {
+            const terms = s.split(/\s+/);
+            const itemText = [
+              item.name, item.user_id, item.instagram_url, 
+              item.category, item.collaboration_tags, item.notes, item.extra_platforms
+            ].join(' ').toLowerCase();
+            
+            const matchSearch = terms.some(term => itemText.includes(term));
+            if (!matchSearch) return false;
+          }
+
+          if (selectedCategory !== 'All' && !(item.category||'').includes(selectedCategory)) return false;
+          
+          const f = parseInt(String(item.followers||'0').replace(/,/g,''),10) || 0;
+          if (advFilters.followers === 'nano' && f >= 10000) return false;
+          if (advFilters.followers === 'micro' && (f < 10000 || f >= 50000)) return false;
+          if (advFilters.followers === 'macro' && (f < 50000 || f >= 150000)) return false;
+          if (advFilters.followers === 'mega' && (f < 150000 || f >= 300000)) return false;
+          if (advFilters.followers === 'toptier' && f < 300000) return false;
+          
+          if (advFilters.promoPlats.length > 0) {
+            const itemPlats = parseTags(item.promo_platforms);
+            const hasPlatMatch = advFilters.promoPlats.some(p => itemPlats.includes(p));
+            if (!hasPlatMatch) return false;
+          }
+          
+          if (advFilters.tags.length > 0) {
+            const itemTags = parseTags(item.collaboration_tags);
+            const hasMatch = advFilters.tags.some(t => itemTags.includes(t));
+            if (!hasMatch) return false;
+          }
+
+          return true;
+        }).sort((a, b) => {
+          if (sortBy === 'newest') return (b.id || 0) - (a.id || 0);
+          if (sortBy === 'oldest') return (a.id || 0) - (b.id || 0);
+          const toNum = x => parseInt(String(x.followers||'0').replace(/,/g,''),10) || 0;
+          if (sortBy === 'followers_desc') return toNum(b) - toNum(a);
+          if (sortBy === 'followers_asc') return toNum(a) - toNum(b);
+          if (sortBy === 'quote_new') return (b.quote_updated_date||'').localeCompare(a.quote_updated_date||'');
+          return 0;
+        });
+      }, [safeData, searchTerm, selectedCategory, advFilters, sortBy]);
+
+      const displayedData = useMemo(() => filteredData.slice((currentPage-1)*ITEMS_PER_PAGE, currentPage*ITEMS_PER_PAGE), [filteredData, currentPage]);
+      const totalPages = Math.ceil(filteredData.length / ITEMS_PER_PAGE);
+      const safeCategories = Array.isArray(categories) ? categories : [];
+
+      // ---------------------------------------------------------
+      // 3. 一般函數 (Function) 區塊
+      // ---------------------------------------------------------
       const fetchData = async () => {
         setIsLoading(true);
         if (!isRealMode) {
@@ -446,7 +507,6 @@
               supabase.from('categories').select('*').order('id', { ascending: true })
             ]);
             if (error) console.error(error);
-            // 🛡️ 確保丟入狀態的一定是陣列
             setData(Array.isArray(inf) ? inf : []);
             setCategories(Array.isArray(cats) ? cats : []);
           } catch (err) { console.error(err); }
@@ -463,6 +523,121 @@
         await supabase.auth.signOut();
       };
 
+      const handleSaveCreator = async (newCreator, isEditMode, originalId) => {
+        if (userRole === 'viewer') return alert('權限不足：您只能瀏覽資料。');
+
+        const final = { ...newCreator, last_updated_date: new Date().toISOString() };
+        if (!isRealMode) {
+          if (isEditMode) setData(data.map(d => d.id === originalId ? { ...final, id: originalId } : d));
+          else { final.id = Math.max(...data.map(d => d.id || 0), 0) + 1; setData([final, ...data]); }
+          closeForm();
+        } else {
+          try {
+            if (isEditMode) {
+              if (!originalId) throw new Error('缺少 ID，無法更新。');
+              delete final.id;
+              const { data: updated, error } = await supabase.from('influencers').update(final).eq('id', originalId).select();
+              if (error) throw error;
+              if (updated && updated.length > 0) {
+                setData(data.map(d => d.id === originalId ? updated[0] : d));
+                closeForm();
+              } else {
+                throw new Error('更新失敗：可能無此權限或找不到資料');
+              }
+            } else {
+              delete final.id;
+              const { data: inserted, error } = await supabase.from('influencers').insert([final]).select();
+              if (error) throw error;
+              if (inserted && inserted.length > 0) {
+                setData([inserted[0], ...data]);
+                closeForm();
+              } else {
+                throw new Error('新增失敗：無回傳資料，可能被 RLS 權限阻擋');
+              }
+            }
+          } catch (err) {
+            console.error('Supabase DB Error:', err);
+            alert(`🚨 資料庫存取失敗！\n\n錯誤訊息：${err.message || JSON.stringify(err)}\n\n💡 請檢查 Supabase 欄位名稱或型態是否正確。`);
+            throw err; 
+          }
+        }
+      };
+
+      const handleDeleteCreator = async (creator) => {
+        if (userRole !== 'admin') return alert('權限不足：只有管理員能刪除資料。');
+
+        if (!isRealMode) {
+          setData(data.filter(d => d.id !== creator.id));
+          setCreatorToDelete(null); setSelectedCreator(null);
+        } else {
+          try {
+            if (!creator.id) throw new Error('缺少 id Primary Key');
+            const { error } = await supabase.from('influencers').delete().eq('id', creator.id);
+            if (error) throw error;
+            setData(data.filter(d => d.id !== creator.id)); 
+            setCreatorToDelete(null); setSelectedCreator(null);
+          } catch (err) {
+            alert(`🚨 刪除失敗！\n錯誤訊息：${err.message || '未知錯誤'}`);
+            throw err;
+          }
+        }
+      };
+
+      const openCreateForm = () => { setEditingData(null); setIsFormOpen(true); };
+      const openEditForm = (creator) => { setSelectedCreator(null); setEditingData(creator); setIsFormOpen(true); };
+      const closeForm = () => { setIsFormOpen(false); setEditingData(null); };
+
+      const handleExportCSV = () => {
+        if (filteredData.length === 0) {
+          alert('目前沒有資料可供匯出！');
+          return;
+        }
+
+        const headers = ['網紅姓名', '最高粉絲數', 'Email', 'Instagram', 'YouTube', 'Facebook', '其他社群連結', '額外曝光管道與說明', '合作模式 Tags', '固定開團平台', '保底費用 / 預計分潤', '備註'];
+        
+        const escapeCSV = (str) => {
+          if (str === null || str === undefined) return '""';
+          return `"${String(str).replace(/"/g, '""')}"`;
+        };
+
+        const rows = filteredData.map(d => {
+          const parsedSocials = parseOtherSocials(d.other_social_platforms);
+          const otherLinks = [];
+          Object.entries(parsedSocials).forEach(([k, v]) => {
+            if (v && k !== 'YouTube' && k !== 'Facebook') otherLinks.push(`${k}: ${v}`);
+          });
+
+          return [
+            escapeCSV(d.name),
+            escapeCSV(d.followers),
+            escapeCSV(d.email),
+            escapeCSV(d.instagram_url),
+            escapeCSV(d.youtube_url),
+            escapeCSV(d.facebook_url),
+            escapeCSV(otherLinks.join('\n')), 
+            escapeCSV(d.extra_platforms), 
+            escapeCSV(d.collaboration_tags),
+            escapeCSV(d.promo_platforms), 
+            escapeCSV(`保底: ${d.base_fee || '無'} / 分潤: ${d.commission_rate || '無'}`),
+            escapeCSV(d.notes)
+          ].join(',');
+        });
+
+        const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `Affiliate_Database_Export_${new Date().toISOString().slice(0,10)}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      };
+
+      // ---------------------------------------------------------
+      // 4. 🚀 提早退場區塊 (Early Returns) -> 絕對不能有任何 Hooks 在這之後！
+      // ---------------------------------------------------------
+      
       // 🔐 如果還在驗證身分，顯示載入中
       if (isCheckingAuth) {
         return (
@@ -520,178 +695,9 @@
         );
       }
 
-      // 🟢 主要應用程式邏輯 (Admin / Editor / Viewer)
-      const handleSaveCreator = async (newCreator, isEditMode, originalId) => {
-        // RBAC: 防止 Viewer 呼叫儲存
-        if (userRole === 'viewer') return alert('權限不足：您只能瀏覽資料。');
-
-        const final = { ...newCreator, last_updated_date: new Date().toISOString() };
-        if (!isRealMode) {
-          if (isEditMode) setData(data.map(d => d.id === originalId ? { ...final, id: originalId } : d));
-          else { final.id = Math.max(...data.map(d => d.id || 0), 0) + 1; setData([final, ...data]); }
-          closeForm();
-        } else {
-          try {
-            if (isEditMode) {
-              if (!originalId) throw new Error('缺少 ID，無法更新。');
-              delete final.id;
-              const { data: updated, error } = await supabase.from('influencers').update(final).eq('id', originalId).select();
-              if (error) throw error;
-              if (updated && updated.length > 0) {
-                setData(data.map(d => d.id === originalId ? updated[0] : d));
-                closeForm();
-              } else {
-                throw new Error('更新失敗：可能無此權限或找不到資料');
-              }
-            } else {
-              delete final.id;
-              const { data: inserted, error } = await supabase.from('influencers').insert([final]).select();
-              if (error) throw error;
-              if (inserted && inserted.length > 0) {
-                setData([inserted[0], ...data]);
-                closeForm();
-              } else {
-                throw new Error('新增失敗：無回傳資料，可能被 RLS 權限阻擋');
-              }
-            }
-          } catch (err) {
-            console.error('Supabase DB Error:', err);
-            alert(`🚨 資料庫存取失敗！\n\n錯誤訊息：${err.message || JSON.stringify(err)}\n\n💡 請檢查 Supabase 欄位名稱或型態是否正確。`);
-            throw err; 
-          }
-        }
-      };
-
-      const handleDeleteCreator = async (creator) => {
-        // RBAC: 只有 Admin 可以刪除
-        if (userRole !== 'admin') return alert('權限不足：只有管理員能刪除資料。');
-
-        if (!isRealMode) {
-          setData(data.filter(d => d.id !== creator.id));
-          setCreatorToDelete(null); setSelectedCreator(null);
-        } else {
-          try {
-            if (!creator.id) throw new Error('缺少 id Primary Key');
-            const { error } = await supabase.from('influencers').delete().eq('id', creator.id);
-            if (error) throw error;
-            setData(data.filter(d => d.id !== creator.id)); 
-            setCreatorToDelete(null); setSelectedCreator(null);
-          } catch (err) {
-            alert(`🚨 刪除失敗！\n錯誤訊息：${err.message || '未知錯誤'}`);
-            throw err;
-          }
-        }
-      };
-
-      const openCreateForm = () => { setEditingData(null); setIsFormOpen(true); };
-      const openEditForm = (creator) => { setSelectedCreator(null); setEditingData(creator); setIsFormOpen(true); };
-      const closeForm = () => { setIsFormOpen(false); setEditingData(null); };
-
-      useEffect(() => { setCurrentPage(1); }, [searchTerm, selectedCategory, advFilters, sortBy]);
-
-      // 🛡️ 確保 data 永遠是陣列
-      const safeData = Array.isArray(data) ? data : [];
-      const filteredData = useMemo(() => {
-        return safeData.filter(item => {
-          if (!item) return false;
-          const s = searchTerm.trim().toLowerCase();
-          if (s) {
-            const terms = s.split(/\s+/);
-            const itemText = [
-              item.name, item.user_id, item.instagram_url, 
-              item.category, item.collaboration_tags, item.notes, item.extra_platforms
-            ].join(' ').toLowerCase();
-            
-            const matchSearch = terms.some(term => itemText.includes(term));
-            if (!matchSearch) return false;
-          }
-
-          if (selectedCategory !== 'All' && !(item.category||'').includes(selectedCategory)) return false;
-          
-          const f = parseInt(String(item.followers||'0').replace(/,/g,''),10) || 0;
-          if (advFilters.followers === 'nano' && f >= 10000) return false;
-          if (advFilters.followers === 'micro' && (f < 10000 || f >= 50000)) return false;
-          if (advFilters.followers === 'macro' && (f < 50000 || f >= 150000)) return false;
-          if (advFilters.followers === 'mega' && (f < 150000 || f >= 300000)) return false;
-          if (advFilters.followers === 'toptier' && f < 300000) return false;
-          
-          if (advFilters.promoPlats.length > 0) {
-            const itemPlats = parseTags(item.promo_platforms);
-            const hasPlatMatch = advFilters.promoPlats.some(p => itemPlats.includes(p));
-            if (!hasPlatMatch) return false;
-          }
-          
-          if (advFilters.tags.length > 0) {
-            const itemTags = parseTags(item.collaboration_tags);
-            const hasMatch = advFilters.tags.some(t => itemTags.includes(t));
-            if (!hasMatch) return false;
-          }
-
-          return true;
-        }).sort((a, b) => {
-          if (sortBy === 'newest') return (b.id || 0) - (a.id || 0);
-          if (sortBy === 'oldest') return (a.id || 0) - (b.id || 0);
-          const toNum = x => parseInt(String(x.followers||'0').replace(/,/g,''),10) || 0;
-          if (sortBy === 'followers_desc') return toNum(b) - toNum(a);
-          if (sortBy === 'followers_asc') return toNum(a) - toNum(b);
-          if (sortBy === 'quote_new') return (b.quote_updated_date||'').localeCompare(a.quote_updated_date||'');
-          return 0;
-        });
-      }, [safeData, searchTerm, selectedCategory, advFilters, sortBy]);
-
-      const displayedData = useMemo(() => filteredData.slice((currentPage-1)*ITEMS_PER_PAGE, currentPage*ITEMS_PER_PAGE), [filteredData, currentPage]);
-      const totalPages = Math.ceil(filteredData.length / ITEMS_PER_PAGE);
-
-      const handleExportCSV = () => {
-        if (filteredData.length === 0) {
-          alert('目前沒有資料可供匯出！');
-          return;
-        }
-
-        const headers = ['網紅姓名', '最高粉絲數', 'Email', 'Instagram', 'YouTube', 'Facebook', '其他社群連結', '額外曝光管道與說明', '合作模式 Tags', '固定開團平台', '保底費用 / 預計分潤', '備註'];
-        
-        const escapeCSV = (str) => {
-          if (str === null || str === undefined) return '""';
-          return `"${String(str).replace(/"/g, '""')}"`;
-        };
-
-        const rows = filteredData.map(d => {
-          const parsedSocials = parseOtherSocials(d.other_social_platforms);
-          const otherLinks = [];
-          Object.entries(parsedSocials).forEach(([k, v]) => {
-            if (v && k !== 'YouTube' && k !== 'Facebook') otherLinks.push(`${k}: ${v}`);
-          });
-
-          return [
-            escapeCSV(d.name),
-            escapeCSV(d.followers),
-            escapeCSV(d.email),
-            escapeCSV(d.instagram_url),
-            escapeCSV(d.youtube_url),
-            escapeCSV(d.facebook_url),
-            escapeCSV(otherLinks.join('\n')), 
-            escapeCSV(d.extra_platforms), 
-            escapeCSV(d.collaboration_tags),
-            escapeCSV(d.promo_platforms), 
-            escapeCSV(`保底: ${d.base_fee || '無'} / 分潤: ${d.commission_rate || '無'}`),
-            escapeCSV(d.notes)
-          ].join(',');
-        });
-
-        const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\n');
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', `Affiliate_Database_Export_${new Date().toISOString().slice(0,10)}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      };
-
-      // 🛡️ 保護 categories，確保不會因為 map 炸掉
-      const safeCategories = Array.isArray(categories) ? categories : [];
-
+      // ---------------------------------------------------------
+      // 5. 畫面渲染區塊 (Render)
+      // ---------------------------------------------------------
       return (
         <div className="min-h-screen flex font-sans">
           {/* ── SIDEBAR ─────────────────────────────────────── */}
@@ -793,7 +799,6 @@
                   <Icon name="download" size={16} /> <span className="hidden lg:inline">匯出</span>
                 </button>
 
-                {/* RBAC: 只有 Admin 和 Editor 才能看到新增按鈕 */}
                 {['admin', 'editor'].includes(userRole) && (
                   <button onClick={openCreateForm}
                     className="shrink-0 flex items-center justify-center gap-2 text-white px-5 py-2.5 rounded-2xl text-sm font-black transition-all shadow-glow hover:shadow-lg hover:-translate-y-0.5"
@@ -802,7 +807,6 @@
                   </button>
                 )}
 
-                {/* 👤 登入者狀態與登出區塊 (🛡️ 防護空信箱導致的報錯) */}
                 <div className="flex items-center gap-2 pl-3 ml-1 border-l border-slate-200 shrink-0">
                   <div className="text-right hidden xl:block">
                     <div className="text-xs font-black text-slate-700 truncate max-w-[100px]">
@@ -911,7 +915,6 @@
           </main>
 
           {isFormOpen && <FormModal existingData={data} categories={categories} initialData={editingData} onClose={closeForm} onSave={handleSaveCreator} />}
-          {/* ✅ 傳遞 userRole 給 DetailModal 做權限控管 */}
           {selectedCreator && <DetailModal data={selectedCreator} userRole={userRole} onClose={() => setSelectedCreator(null)} onEdit={() => openEditForm(selectedCreator)} onDelete={() => { setSelectedCreator(null); setCreatorToDelete(selectedCreator); }} />}
           {creatorToDelete && <ConfirmDeleteModal data={creatorToDelete} onClose={() => setCreatorToDelete(null)} onConfirm={handleDeleteCreator} />}
         </div>
