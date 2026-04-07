@@ -383,6 +383,7 @@
       const [selectedCreator, setSelectedCreator] = useState(null);
       const [creatorToDelete, setCreatorToDelete] = useState(null);
       const [isCategoriesOpen, setIsCategoriesOpen] = useState(false);
+      const prevEmailRef = useRef(null);
 
       // ---------------------------------------------------------
       // 2. 所有 Effect & Memo (副作用與計算) Hooks 區塊
@@ -395,8 +396,9 @@
           return;
         }
 
-        const checkUserRole = async (email) => {
-          setIsCheckingAuth(true);
+        // ✅ 修改 1：加入 silent 參數，決定要不要蓋上「驗證身分中」的白畫面
+        const checkUserRole = async (email, silent = false) => {
+          if (!silent) setIsCheckingAuth(true);
           try {
             const { data, error } = await supabase.from('allowed_users').select('role').eq('email', email).single();
             if (error || !data) {
@@ -408,20 +410,36 @@
             console.error("Role fetch error:", err);
             setUserRole('unauthorized');
           } finally {
-            setIsCheckingAuth(false);
+            if (!silent) setIsCheckingAuth(false);
           }
         };
 
+        // ✅ 修改 2：初次載入時，把 Email 記下來
         supabase.auth.getSession().then(({ data: { session } }) => {
           setSession(session);
-          if (session?.user?.email) checkUserRole(session.user.email);
-          else setIsCheckingAuth(false);
+          if (session?.user?.email) {
+            prevEmailRef.current = session.user.email;
+            checkUserRole(session.user.email, false); // 初次載入，必須顯示載入中
+          } else {
+            setIsCheckingAuth(false);
+          }
         });
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-          setSession(session);
-          if (session?.user?.email) checkUserRole(session.user.email);
-          else { setUserRole(null); setIsCheckingAuth(false); }
+        // ✅ 修改 3：監聽狀態變化時，比對是不是同一個人
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
+          setSession(newSession);
+          if (newSession?.user?.email) {
+            const currentEmail = newSession.user.email;
+            // 如果是同一個人切換分頁，isSameUser 就是 true (代表要 silent 安靜更新)
+            const isSameUser = prevEmailRef.current === currentEmail;
+            prevEmailRef.current = currentEmail;
+            
+            checkUserRole(currentEmail, isSameUser);
+          } else {
+            prevEmailRef.current = null;
+            setUserRole(null); 
+            setIsCheckingAuth(false); 
+          }
         });
 
         return () => subscription.unsubscribe();
