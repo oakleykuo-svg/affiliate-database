@@ -184,7 +184,7 @@
       download:  <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></>,
       logout:    <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></>,
       shield:    <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></>,
-      refresh:   <><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></> // ↺ 重設按鈕 Icon
+      refresh:   <><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></>
     };
     const Icon = ({ name, size = 16, className = '', stroke = 'currentColor', strokeWidth = 2 }) => (
       <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -840,15 +840,15 @@
 
             {showAdvancedFilters && (
               <div className="bg-white/90 backdrop-blur-xl border-b border-slate-100 px-6 py-5 shadow-sm z-0 animate-slide-down">
-                <div className="max-w-4xl grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="space-y-2">
+                <div className="max-w-5xl flex flex-col lg:flex-row gap-6 lg:items-start">
+                  <div className="space-y-2 w-full lg:w-56 shrink-0">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.12em]">粉絲數級別</label>
                     <select value={advFilters.followers} onChange={e => setAdvFilters({...advFilters, followers:e.target.value})} className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand/25 font-medium">
                       <option value="all">不限</option><option value="nano">Nano (&lt; 10k)</option><option value="micro">Micro (10k–50k)</option><option value="macro">Macro (50k–150k)</option><option value="mega">Mega (150k–300k)</option><option value="toptier">Top Tier (&gt; 300k)</option>
                     </select>
                   </div>
                   
-                  <div className="space-y-2">
+                  <div className="space-y-2 w-full lg:w-auto shrink-0">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.12em]">開團平台</label>
                     <div className="flex flex-wrap gap-2 pt-2">
                       {PROMO_PLATFORM_OPTIONS.map(plat => (
@@ -862,25 +862,24 @@
                     </div>
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-2 flex-1 min-w-0">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.12em]">合作模式 Tags</label>
-                    <div className="flex flex-wrap gap-2 pt-2">
-                      {COLLAB_OPTIONS.map(tag => (
-                        <label key={tag} className={`flex items-center gap-1.5 cursor-pointer text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-all ${advFilters.tags.includes(tag) ? 'bg-brand/10 border-brand text-brand shadow-sm' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-                          <input type="checkbox" className="hidden" checked={advFilters.tags.includes(tag)} onChange={e => {
-                            const newTags = e.target.checked ? [...advFilters.tags, tag] : advFilters.tags.filter(t => t !== tag);
-                            setAdvFilters({...advFilters, tags: newTags});
-                          }} />{tag}
-                        </label>
-                      ))}
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-2">
+                      <div className="flex flex-wrap gap-2">
+                        {COLLAB_OPTIONS.map(tag => (
+                          <label key={tag} className={`flex items-center gap-1.5 cursor-pointer text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-all ${advFilters.tags.includes(tag) ? 'bg-brand/10 border-brand text-brand shadow-sm' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                            <input type="checkbox" className="hidden" checked={advFilters.tags.includes(tag)} onChange={e => {
+                              const newTags = e.target.checked ? [...advFilters.tags, tag] : advFilters.tags.filter(t => t !== tag);
+                              setAdvFilters({...advFilters, tags: newTags});
+                            }} />{tag}
+                          </label>
+                        ))}
+                      </div>
+                      <button onClick={handleResetAll} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-500 hover:text-brand hover:bg-brand/5 rounded-xl transition-all whitespace-nowrap shrink-0 border border-transparent hover:border-brand/20">
+                        <Icon name="refresh" size={14} /> 重設全部條件
+                      </button>
                     </div>
                   </div>
-                </div>
-                {/* 🧹 真正補上的「↺ 重設全部條件」按鈕 */}
-                <div className="max-w-4xl mt-5 pt-4 border-t border-slate-100 flex justify-end">
-                  <button onClick={handleResetAll} className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-slate-500 hover:text-brand hover:bg-brand/5 rounded-xl transition-all border border-transparent hover:border-brand/20">
-                    <Icon name="refresh" size={14} /> 重設全部條件
-                  </button>
                 </div>
               </div>
             )}
@@ -933,12 +932,12 @@
             <div className="absolute top-0 left-[-100%] w-[60%] h-full bg-gradient-to-r from-transparent via-white/50 to-transparent group-hover:left-[150%] transition-all duration-500 ease-in-out"></div>
           </div>
 
-          {/* 🛒 修改：更精緻的「＋」或「✓」選取按鈕 */}
-          <div onClick={onToggleSelect} className="absolute top-[-6px] left-[-6px] z-30 p-1.5 rounded-full hover:scale-110 transition-transform cursor-pointer group/check">
-            <div className={`w-5 h-5 rounded-full flex items-center justify-center transition-all shadow-sm ${isSelected ? 'bg-brand text-white shadow-brand/30 border border-brand' : 'bg-slate-100 border border-slate-200 text-slate-400 group-hover/check:bg-brand/10 group-hover/check:text-brand group-hover/check:border-brand/30'}`}>
+          {/* 🛒 修改：半透明高質感的「＋」或「✓」選取按鈕 */}
+          <div onClick={onToggleSelect} className="absolute top-[-8px] left-[-8px] z-30 p-1.5 rounded-full hover:scale-110 transition-transform cursor-pointer group/check">
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-all shadow-sm backdrop-blur-md ${isSelected ? 'bg-brand text-white shadow-brand/30 border border-brand' : 'bg-white/70 border border-white/60 text-slate-500 group-hover/check:bg-white group-hover/check:text-brand group-hover/check:border-brand/30 group-hover/check:shadow-md'}`}>
               {isSelected 
-                ? <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
               }
             </div>
           </div>
