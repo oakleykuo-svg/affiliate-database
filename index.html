@@ -1137,6 +1137,13 @@
                   </div>
                 );
               })}
+              {data?.reference_link && <a href={data.reference_link} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} className="hover:scale-110 hover:-translate-y-0.5 transition-all text-amber-500"><Icon name="bookmark" size={18} stroke="#f59e0b" strokeWidth={2.5} /></a>}
+              {data?.anytag_url && <a href={data.anytag_url} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} className="text-slate-400 hover:text-brand hover:scale-110 transition-all"><Icon name="external" size={12} /></a>}
+            </div>
+          </div>
+        </div>
+      );
+    }
 
     // ============================================================
     // 📋 DETAIL MODAL
