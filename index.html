@@ -971,8 +971,8 @@
             </div>
           </main>
 
-          {/* ✅ 加入 150 毫秒跳轉延遲，防止 React 狀態衝突導致視窗卡死 */}
-          {isFormOpen && <FormModal existingData={data} categories={categories} initialData={editingData} onClose={closeForm} onSave={handleSaveCreator} onViewDuplicate={(creator) => { closeForm(); setTimeout(() => setSelectedCreator(creator), 150); }} />}
+          {/* ✅ 移除延遲，改為同步直球跳轉，依賴 React 的自動批次更新 */}
+          {isFormOpen && <FormModal existingData={data} categories={categories} initialData={editingData} onClose={closeForm} onSave={handleSaveCreator} onViewDuplicate={(creator) => { closeForm(); setSelectedCreator(creator); }} />}
           {selectedCreator && <DetailModal data={selectedCreator} userRole={userRole} onClose={() => setSelectedCreator(null)} onEdit={() => openEditForm(selectedCreator)} onDelete={() => { setSelectedCreator(null); setCreatorToDelete(selectedCreator); }} />}
           {creatorToDelete && <ConfirmDeleteModal data={creatorToDelete} onClose={() => setCreatorToDelete(null)} onConfirm={handleDeleteCreator} />}
         </div>
@@ -1273,7 +1273,6 @@
         if (currentUrls.length > 0) {
           let foundDuplicate = null;
           const isDuplicate = existingData.some(d => {
-            // ✅ 強制轉型為字串比對，解決編輯時「自己撞自己」的問題
             if (String(d.id) === String(formData.id)) return false; 
             const dUrls = extractAllUrls(d);
             const match = currentUrls.some(cu => dUrls.includes(cu));
@@ -1349,7 +1348,8 @@
                         </p>
                       </div>
                     </div>
-                    <button type="button" onClick={() => onViewDuplicate(duplicateConflict)} className="shrink-0 bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl text-xs font-black shadow-sm transition-colors flex items-center gap-1.5 w-full sm:w-auto justify-center">
+                    {/* ✅ 加入 e.preventDefault() 與 e.stopPropagation() 防止表單誤動作與事件穿透 */}
+                    <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onViewDuplicate(duplicateConflict); }} className="shrink-0 bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl text-xs font-black shadow-sm transition-colors flex items-center gap-1.5 w-full sm:w-auto justify-center">
                       <Icon name="external" size={14} /> 查看該網紅檔案
                     </button>
                   </div>
