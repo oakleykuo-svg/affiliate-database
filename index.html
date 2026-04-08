@@ -233,7 +233,7 @@
     const extractIgUserId = (url) => { const m = url?.match(/(?:instagram\.com\/)([^/?]+)/i); return m ? m[1] : ''; };
     const parseTags = (tagString) => tagString && typeof tagString === 'string' ? tagString.split(',').map(t => t.trim()).filter(Boolean) : [];
 
-    const COLLAB_OPTIONS = ['團購', '優惠碼/折扣碼', '純分潤'];
+    const COLLAB_OPTIONS = ['團購', '優惠碼/折扣碼', '純分潤', '尚未分類'];
     const PROMO_PLATFORM_OPTIONS = ['IG', 'YT', 'FB', 'TikTok', 'Line群', '其他'];
 
     const normalizeUrl = (url) => {
@@ -887,7 +887,7 @@
               {isLoading ? (
                 <div className="flex items-center justify-center h-64 text-slate-400 font-medium flex-col gap-3"><span className="relative flex h-4 w-4"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand/50 opacity-75"></span><span className="relative inline-flex rounded-full h-4 w-4 bg-brand"></span></span>資料讀取中...</div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5">
                   {/* ✅ 將 userRole 傳遞進 CreatorCard 以判斷是否顯示選取按鈕 */}
                   {displayedData.map(creator => (
                     <CreatorCard key={creator.id} data={creator} userRole={userRole} onClick={() => setSelectedCreator(creator)} isSelected={selectedIds.includes(creator.id)} onToggleSelect={(e) => toggleSelection(creator.id, e)} />
@@ -1181,6 +1181,7 @@
         if (!formData.name) missingFields.push('網紅姓名');
         if (!formData.followers) missingFields.push('粉絲數');
         if (!formData.user_id) missingFields.push('帳號 ID');
+        if (!formData.collaboration_tags?.trim()) missingFields.push('合作模式 Tags');
         if (!formData.instagram_url?.trim() && Object.keys(otherSocialsObj).length === 0) {
           missingFields.push('社群平台 (請至少填寫 IG 網址或選擇其他平台)');
         }
@@ -1328,6 +1329,32 @@
                       })}
                     </div>
                   </FormField>
+
+                  <FormField label="合作模式 Tags" required colSpan2>
+                    <div ref={collabRef} className="relative">
+                      <div onClick={() => setShowCollabDD(!showCollabDD)} className={`${inputCls} cursor-pointer flex justify-between items-center ${showCollabDD ? 'ring-2 ring-brand/30 border-brand' : ''}`}>
+                        <span className={formData.collaboration_tags ? "text-slate-800 font-bold truncate pr-2" : "text-slate-400"}>{formData.collaboration_tags||'請選擇合作模式...'}</span>
+                        <Icon name={showCollabDD ? 'chevup' : 'chevdown'} size={18} className="text-slate-400 shrink-0" />
+                      </div>
+                      {showCollabDD && (
+                        <div className="absolute z-20 mt-1 w-full bg-white border border-slate-100 shadow-[0_10px_40px_rgba(0,0,0,0.1)] rounded-2xl p-3 grid grid-cols-2 sm:grid-cols-3 gap-2 animate-slide-down">
+                          {COLLAB_OPTIONS.map(opt => {
+                            const checked = formData.collaboration_tags?.includes(opt) || false;
+                            return (
+                              <label key={opt} className={`flex items-center gap-2 text-sm font-bold cursor-pointer p-2.5 rounded-xl transition-all ${checked ? 'bg-brand/10 text-brand' : 'text-slate-600 hover:bg-slate-50'}`}>
+                                <input type="checkbox" checked={checked} onChange={e => {
+                                  let tags = formData.collaboration_tags ? formData.collaboration_tags.split(',').map(s=>s.trim()).filter(Boolean) : [];
+                                  if (e.target.checked) tags.push(opt); else tags = tags.filter(c=>c!==opt);
+                                  setFormData({...formData, collaboration_tags:tags.join(', ')});
+                                }} className="rounded border-slate-300 text-brand focus:ring-brand h-4 w-4 shrink-0" />{opt}
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </FormField>
+
                   <FormField label="帳號 ID" hint="💡 可手動編輯" required colSpan2><input type="text" placeholder="有填IG會自動帶入，無IG則自動填N/A" value={formData.user_id} onChange={e => setFormData({...formData, user_id:e.target.value})} className={inputCls} /></FormField>
                 </div>
 
@@ -1355,31 +1382,6 @@
                               </label>
                             );
                           })}
-                        </div>
-                      </FormField>
-
-                      <FormField label="合作模式 Tags" colSpan2>
-                        <div ref={collabRef} className="relative">
-                          <div onClick={() => setShowCollabDD(!showCollabDD)} className={`${inputCls} cursor-pointer flex justify-between items-center ${showCollabDD ? 'ring-2 ring-brand/30 border-brand' : ''}`}>
-                            <span className={formData.collaboration_tags ? "text-slate-800 font-bold truncate pr-2" : "text-slate-400"}>{formData.collaboration_tags||'請選擇合作模式...'}</span>
-                            <Icon name={showCollabDD ? 'chevup' : 'chevdown'} size={18} className="text-slate-400 shrink-0" />
-                          </div>
-                          {showCollabDD && (
-                            <div className="absolute z-20 mt-1 w-full bg-white border border-slate-100 shadow-[0_10px_40px_rgba(0,0,0,0.1)] rounded-2xl p-3 grid grid-cols-2 sm:grid-cols-3 gap-2 animate-slide-down">
-                              {COLLAB_OPTIONS.map(opt => {
-                                const checked = formData.collaboration_tags?.includes(opt) || false;
-                                return (
-                                  <label key={opt} className={`flex items-center gap-2 text-sm font-bold cursor-pointer p-2.5 rounded-xl transition-all ${checked ? 'bg-brand/10 text-brand' : 'text-slate-600 hover:bg-slate-50'}`}>
-                                    <input type="checkbox" checked={checked} onChange={e => {
-                                      let tags = formData.collaboration_tags ? formData.collaboration_tags.split(',').map(s=>s.trim()).filter(Boolean) : [];
-                                      if (e.target.checked) tags.push(opt); else tags = tags.filter(c=>c!==opt);
-                                      setFormData({...formData, collaboration_tags:tags.join(', ')});
-                                    }} className="rounded border-slate-300 text-brand focus:ring-brand h-4 w-4 shrink-0" />{opt}
-                                  </label>
-                                );
-                              })}
-                            </div>
-                          )}
                         </div>
                       </FormField>
 
