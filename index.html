@@ -1154,13 +1154,14 @@
     // ============================================================
     // 📝 FORM MODAL
     // ============================================================
-    function FormModal({ existingData = [], categories = [], initialData, onClose, onSave }) {
+    function FormModal({ existingData = [], categories = [], initialData, onClose, onSave, onViewDuplicate }) {
       const isEditing = !!initialData;
       const [showAdvanced, setShowAdvanced] = useState(isEditing);
       const [showAvatarHelp, setShowAvatarHelp] = useState(false);
       const [isSaving, setIsSaving] = useState(false);
       const [showCollabDD, setShowCollabDD] = useState(false);
       const [showSocialsDD, setShowSocialsDD] = useState(false);
+      const [duplicateConflict, setDuplicateConflict] = useState(null); // ✅ 新增：用來儲存重複的網紅資料
       const collabRef = useRef(null);
       const socialsRef = useRef(null);
 
@@ -1223,6 +1224,7 @@
 
       const handleSubmit = async (e) => {
         if (e) e.preventDefault();
+        setDuplicateConflict(null); // ✅ 每次送出前清空衝突狀態
         
         const missingFields = [];
         if (!formData.name) missingFields.push('網紅姓名');
@@ -1251,14 +1253,19 @@
 
         const currentUrls = extractAllUrls({...formData, other_social_platforms: JSON.stringify(otherSocialsObj)});
         if (currentUrls.length > 0) {
+          let foundDuplicate = null;
           const isDuplicate = existingData.some(d => {
             if (d.id === formData.id) return false; 
             const dUrls = extractAllUrls(d);
-            return currentUrls.some(cu => dUrls.includes(cu));
+            const match = currentUrls.some(cu => dUrls.includes(cu));
+            if (match) foundDuplicate = d;
+            return match;
           });
 
           if (isDuplicate) {
-            alert('🚨 警告：您填寫的社群網址已經存在於資料庫中，請勿重複建檔！\n\n💡 系統已自動排除追蹤碼與格式差異進行嚴格比對。');
+            // ✅ 修改：抓到重複時，觸發精美 UI 並將視窗滾到最上方
+            setDuplicateConflict(foundDuplicate);
+            document.getElementById('form-scroll-area')?.scrollTo({top: 0, behavior: 'smooth'});
             return;
           }
         }
@@ -1312,7 +1319,27 @@
             </div>
 
             <form id="creatorForm" onSubmit={handleSubmit} noValidate className="flex flex-col flex-1 overflow-hidden min-h-0">
-              <div className="p-8 overflow-y-auto flex-1 no-scrollbar space-y-8">
+              {/* ✅ 加上 id 以便報錯時自動滾動 */}
+              <div id="form-scroll-area" className="p-8 overflow-y-auto flex-1 no-scrollbar space-y-8">
+                
+                {/* ✅ 新增：當發現網址重複時顯示的警告區塊 */}
+                {duplicateConflict && (
+                  <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-slide-down">
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5 text-red-500"><Icon name="info" size={20} strokeWidth={2.5} /></div>
+                      <div>
+                        <h4 className="font-black text-red-700 text-sm mb-1">發現重複的社群網址！</h4>
+                        <p className="text-xs text-red-600 font-medium leading-relaxed">
+                          您填寫的網址已經存在於 <strong className="font-black">{duplicateConflict.name}</strong> (@{duplicateConflict.user_id || '無ID'}) 的檔案中。
+                        </p>
+                      </div>
+                    </div>
+                    <button type="button" onClick={() => onViewDuplicate(duplicateConflict)} className="shrink-0 bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl text-xs font-black shadow-sm transition-colors flex items-center gap-1.5 w-full sm:w-auto justify-center">
+                      <Icon name="external" size={14} /> 查看該網紅檔案
+                    </button>
+                  </div>
+                )}
+
                 <div className="space-y-5">
                   <div className="flex items-center gap-2 mb-3">
                     <span className="bg-brand/10 text-brand text-xs font-black px-2 py-1 rounded-lg">區塊 A</span><h3 className="font-black text-slate-800">基本資料</h3>
