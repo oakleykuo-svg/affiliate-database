@@ -300,12 +300,18 @@
       return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
     };
 
+    // ✅ 升級：將超長網址轉換成「精緻的小按鈕」，保留純文字說明
     const renderLinks = (text) => {
       if (!text || typeof text !== 'string') return null;
       const urlRegex = /(https?:\/\/[^\s]+)/g;
       return text.split(urlRegex).map((part, i) =>
         urlRegex.test(part)
-          ? <a key={i} href={part} target="_blank" rel="noreferrer" className="text-brand hover:underline font-black break-all" onClick={e => e.stopPropagation()}>{part}</a>
+          ? (
+            <a key={i} href={part} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} 
+               className="inline-flex items-center gap-1 px-2.5 py-1 mx-1 bg-brand/10 text-brand border border-brand/20 rounded-lg text-[11px] font-black hover:bg-brand hover:text-white transition-all shadow-sm align-middle leading-none">
+              <Icon name="link" size={12} /> 點擊連結
+            </a>
+          )
           : <span key={i}>{part}</span>
       );
     };
