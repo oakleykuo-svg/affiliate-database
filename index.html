@@ -236,13 +236,35 @@
     const COLLAB_OPTIONS = ['團購', '優惠碼/折扣碼', '純分潤', '尚未分類'];
     const PROMO_PLATFORM_OPTIONS = ['IG', 'YT', 'FB', 'TikTok', 'Line群', '其他'];
 
+    // ✅ 升級：智慧型網址正規化，過濾掉行銷追蹤碼，完美保留 FB 的 id 與 YT 的完整路徑
     const normalizeUrl = (url) => {
       if (!url || typeof url !== 'string') return '';
-      let clean = url.trim().toLowerCase();
-      clean = clean.replace(/^https?:\/\//, '').replace(/^www\./, '');
-      clean = clean.split('?')[0].split('#')[0]; 
-      clean = clean.replace(/\/$/, '');
-      return clean;
+      let urlString = url.trim().toLowerCase();
+      // 如果沒有 http 開頭，自動補上才能被 URL 解析器正確讀取
+      if (!urlString.startsWith('http://') && !urlString.startsWith('https://')) {
+        urlString = 'https://' + urlString;
+      }
+      
+      try {
+        const parsed = new URL(urlString);
+        
+        // 建立「垃圾追蹤碼黑名單」，只殺這些，其他都保留
+        const trackingParams = [
+          'fbclid', 'igsh', 'ref', 'utm_source', 'utm_medium', 
+          'utm_campaign', 'utm_content', 'utm_term', 'gclid'
+        ];
+        
+        trackingParams.forEach(param => parsed.searchParams.delete(param));
+
+        // 重組乾淨的網址 (去掉 www. 以達到更寬鬆的匹配)
+        let host = parsed.hostname.replace(/^www\./, '');
+        let result = host + parsed.pathname + parsed.search;
+        return result.replace(/\/$/, ''); // 去除結尾的斜線
+      } catch (e) {
+        // 若遇到不合規的奇怪網址，退回基礎的字串清理
+        let clean = urlString.replace(/^https?:\/\//, '').replace(/^www\./, '');
+        return clean.replace(/\/$/, '');
+      }
     };
 
     const parseOtherSocials = (jsonStr) => {
@@ -300,7 +322,6 @@
       return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
     };
 
-    // ✅ 升級：將超長網址轉換成「精緻的小按鈕」，保留純文字說明
     const renderLinks = (text) => {
       if (!text || typeof text !== 'string') return null;
       const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -346,7 +367,6 @@
       const [searchTerm, setSearchTerm] = useState('');
       const [selectedCategories, setSelectedCategories] = useState([]); 
       const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
-      // ✅ 加入 hasQuote 狀態
       const [advFilters, setAdvFilters] = useState({ followers:'all', promoPlats:[], tags:[], hasQuote: false });
       const [sortBy, setSortBy] = useState('newest'); 
       const [currentPage, setCurrentPage] = useState(1);
@@ -446,9 +466,11 @@
           const s = searchTerm.trim().toLowerCase();
           if (s) {
             const terms = s.split(/\s+/);
+            const allUrls = extractAllUrls(item).join(' ');
             const itemText = [
-              item.name, item.user_id, item.instagram_url, 
-              item.category, item.collaboration_tags, item.notes, item.extra_platforms
+              item.name, item.user_id, item.instagram_url, item.youtube_url, item.facebook_url,
+              item.category, item.collaboration_tags, item.notes, item.extra_platforms,
+              allUrls, item.other_social_platforms
             ].join(' ').toLowerCase();
             const matchSearch = terms.some(term => itemText.includes(term));
             if (!matchSearch) return false;
@@ -480,7 +502,7 @@
             if (!hasMatch) return false;
           }
           
-          // ✅ 邏輯更新：過濾有報價紀錄的網紅
+          // 邏輯更新：過濾有報價紀錄的網紅
           if (advFilters.hasQuote) {
             const hasBaseFee = item.base_fee && item.base_fee.trim() !== '' && item.base_fee.trim() !== '無' && item.base_fee.trim() !== '-';
             const hasCommission = item.commission_rate && item.commission_rate.trim() !== '' && item.commission_rate.trim() !== '無' && item.commission_rate.trim() !== '-';
@@ -593,7 +615,6 @@
       const handleResetAll = () => {
         setSearchTerm('');
         setSelectedCategories([]);
-        // ✅ 邏輯更新：重置時要將 hasQuote 設定為 false
         setAdvFilters({ followers:'all', promoPlats:[], tags:[], hasQuote: false });
         setSortBy('newest');
         setCurrentPage(1);
@@ -609,7 +630,6 @@
 
       // 📦 匯出功能
       const handleExportCSV = () => {
-        // ✅ 嚴格防護：防堵 viewer 匯出
         if (!['admin', 'editor'].includes(userRole)) {
           alert('權限不足：只有管理員和編輯者能匯出資料。');
           return;
@@ -665,7 +685,7 @@
           { element: '#tour-advanced', popover: { title: '3. 進階篩選與領域', description: '點擊展開篩選面板，現在可以「跨領域複選」類別、開團平台等條件了！', side: "bottom", align: 'start' }}
         ];
 
-        // ✅ 只有編輯權限以上的人，才會在導覽中看到匯出與新增的步驟
+        // 只有編輯權限以上的人，才會在導覽中看到匯出與新增的步驟
         if (['admin', 'editor'].includes(userRole)) {
           steps.push({ element: '#tour-export', popover: { title: '4. 匯出與購物車', description: '勾選下方網紅卡片左上角的「＋」號加入購物車，這顆按鈕就會自動變身，讓你精準匯出名單。', side: "bottom", align: 'start' }});
           steps.push({ element: '#tour-add', popover: { title: '5. 新增網紅', description: '隨時把最新發現的網紅建檔，豐富你們的專屬資料庫吧！', side: "bottom", align: 'start' }});
@@ -916,7 +936,6 @@
                 <div className="flex items-center justify-center h-64 text-slate-400 font-medium flex-col gap-3"><span className="relative flex h-4 w-4"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand/50 opacity-75"></span><span className="relative inline-flex rounded-full h-4 w-4 bg-brand"></span></span>資料讀取中...</div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5">
-                  {/* ✅ 將 userRole 傳遞進 CreatorCard 以判斷是否顯示選取按鈕 */}
                   {displayedData.map(creator => (
                     <CreatorCard key={creator.id} data={creator} userRole={userRole} onClick={() => setSelectedCreator(creator)} isSelected={selectedIds.includes(creator.id)} onToggleSelect={(e) => toggleSelection(creator.id, e)} />
                   ))}
@@ -925,7 +944,6 @@
                     <div className="col-span-full flex justify-center items-center gap-4 py-8">
                       <button onClick={() => { setCurrentPage(p => Math.max(1,p-1)); document.getElementById('scroll-container').scrollTo({top:0,behavior:'smooth'}); }} disabled={currentPage===1} className="px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 font-bold hover:bg-slate-50 hover:text-brand disabled:opacity-40 transition-all shadow-sm text-sm">上一頁</button>
                       
-                      {/* ✅ 升級：中間的頁面資訊變成「下拉式跳轉選單」 */}
                       <div className="text-slate-500 font-medium text-sm bg-white px-4 py-2 rounded-xl border border-slate-100 shadow-sm flex items-center gap-2">
                         第 
                         <select 
@@ -953,7 +971,8 @@
             </div>
           </main>
 
-          {isFormOpen && <FormModal existingData={data} categories={categories} initialData={editingData} onClose={closeForm} onSave={handleSaveCreator} />}
+          {/* ✅ 加入 150 毫秒跳轉延遲，防止 React 狀態衝突導致視窗卡死 */}
+          {isFormOpen && <FormModal existingData={data} categories={categories} initialData={editingData} onClose={closeForm} onSave={handleSaveCreator} onViewDuplicate={(creator) => { closeForm(); setTimeout(() => setSelectedCreator(creator), 150); }} />}
           {selectedCreator && <DetailModal data={selectedCreator} userRole={userRole} onClose={() => setSelectedCreator(null)} onEdit={() => openEditForm(selectedCreator)} onDelete={() => { setSelectedCreator(null); setCreatorToDelete(selectedCreator); }} />}
           {creatorToDelete && <ConfirmDeleteModal data={creatorToDelete} onClose={() => setCreatorToDelete(null)} onConfirm={handleDeleteCreator} />}
         </div>
@@ -979,7 +998,6 @@
             <div className="absolute top-0 left-[-100%] w-[60%] h-full bg-gradient-to-r from-transparent via-white/50 to-transparent group-hover:left-[150%] transition-all duration-500 ease-in-out"></div>
           </div>
 
-          {/* 🛒 僅管理員/編輯者可見的選取按鈕 (Viewer 無法看到，確保無法使用購物車) */}
           {['admin', 'editor'].includes(userRole) && (
             <div onClick={onToggleSelect} className="absolute top-[-8px] left-[-8px] z-30 p-1.5 rounded-full hover:scale-110 transition-transform cursor-pointer group/check">
               <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-all shadow-sm backdrop-blur-md ${isSelected ? 'bg-brand text-white shadow-brand/30 border border-brand' : 'bg-white/70 border border-white/60 text-slate-500 group-hover/check:bg-white group-hover/check:text-brand group-hover/check:border-brand/30 group-hover/check:shadow-md'}`}>
@@ -1161,7 +1179,7 @@
       const [isSaving, setIsSaving] = useState(false);
       const [showCollabDD, setShowCollabDD] = useState(false);
       const [showSocialsDD, setShowSocialsDD] = useState(false);
-      const [duplicateConflict, setDuplicateConflict] = useState(null); // ✅ 新增：用來儲存重複的網紅資料
+      const [duplicateConflict, setDuplicateConflict] = useState(null); 
       const collabRef = useRef(null);
       const socialsRef = useRef(null);
 
@@ -1224,7 +1242,7 @@
 
       const handleSubmit = async (e) => {
         if (e) e.preventDefault();
-        setDuplicateConflict(null); // ✅ 每次送出前清空衝突狀態
+        setDuplicateConflict(null);
         
         const missingFields = [];
         if (!formData.name) missingFields.push('網紅姓名');
@@ -1255,7 +1273,8 @@
         if (currentUrls.length > 0) {
           let foundDuplicate = null;
           const isDuplicate = existingData.some(d => {
-            if (d.id === formData.id) return false; 
+            // ✅ 強制轉型為字串比對，解決編輯時「自己撞自己」的問題
+            if (String(d.id) === String(formData.id)) return false; 
             const dUrls = extractAllUrls(d);
             const match = currentUrls.some(cu => dUrls.includes(cu));
             if (match) foundDuplicate = d;
@@ -1263,7 +1282,6 @@
           });
 
           if (isDuplicate) {
-            // ✅ 修改：抓到重複時，觸發精美 UI 並將視窗滾到最上方
             setDuplicateConflict(foundDuplicate);
             document.getElementById('form-scroll-area')?.scrollTo({top: 0, behavior: 'smooth'});
             return;
@@ -1310,7 +1328,6 @@
             <div className="px-8 py-5 border-b border-slate-100 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-3">
                 <h2 className="text-lg font-black grad-brand">{isEditing ? '編輯網紅檔案' : '新增網紅檔案'}</h2>
-                {/* 🎓 表單內的教學按鈕 */}
                 <button type="button" onClick={startFormTour} className="flex items-center gap-1.5 px-3 py-1.5 bg-brand/10 hover:bg-brand/20 text-brand rounded-full text-xs font-bold transition-colors">
                   <Icon name="help" size={14} /> 填寫教學
                 </button>
@@ -1319,10 +1336,8 @@
             </div>
 
             <form id="creatorForm" onSubmit={handleSubmit} noValidate className="flex flex-col flex-1 overflow-hidden min-h-0">
-              {/* ✅ 加上 id 以便報錯時自動滾動 */}
               <div id="form-scroll-area" className="p-8 overflow-y-auto flex-1 no-scrollbar space-y-8">
                 
-                {/* ✅ 新增：當發現網址重複時顯示的警告區塊 */}
                 {duplicateConflict && (
                   <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-slide-down">
                     <div className="flex items-start gap-3">
@@ -1345,7 +1360,6 @@
                     <span className="bg-brand/10 text-brand text-xs font-black px-2 py-1 rounded-lg">區塊 A</span><h3 className="font-black text-slate-800">基本資料</h3>
                   </div>
                   
-                  {/* 🎯 錨點 1：社群網址 */}
                   <div id="tour-form-social" className="space-y-5">
                     <FormField label="Instagram 網址" hint="💡 與其他社群平台擇一填寫" required colSpan2><input type="text" placeholder="https://instagram.com/..." value={formData.instagram_url} onChange={handleIgChange} className={inputCls} /></FormField>
                     <FormField label="其他社群平台網址" hint="💡 與Instagram網址擇一填寫" required colSpan2>
@@ -1381,7 +1395,6 @@
                   <FormField label="額外曝光管道" hint="💡 不同管道網址請直接換行貼上" hintStyle="gray" colSpan2><textarea rows="3" placeholder="💡 例：Line社群、FB私密社團、7-11賣貨便等... 請直接換行貼上不同管道的網址或說明" value={formData.extra_platforms||''} onChange={e => setFormData({...formData, extra_platforms:e.target.value})} className={`${inputCls} resize-none leading-relaxed border-dashed`} /></FormField>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <FormField label="網紅姓名" required><input type="text" value={formData.name} onChange={e => setFormData({...formData, name:e.target.value})} className={inputCls} /></FormField>
-                    {/* 🎯 錨點 2：粉絲數 */}
                     <div id="tour-form-followers" className="w-full">
                       <FormField label="粉絲數" hint="💡 填寫最高平台數字" required><input type="text" placeholder="例：150000" value={formData.followers} onChange={e => setFormData({...formData, followers:e.target.value})} className={inputCls} /></FormField>
                     </div>
@@ -1434,7 +1447,6 @@
 
                 <hr className="border-slate-100" />
                 <div>
-                  {/* 🎯 錨點 3：進階商業資訊 */}
                   <button id="tour-form-advanced" type="button" onClick={() => setShowAdvanced(!showAdvanced)} className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-white border border-slate-100 rounded-2xl transition-all shadow-sm">
                     <div className="flex items-center gap-3"><span className="bg-slate-200 text-slate-600 text-xs font-black px-2 py-1 rounded-lg">區塊 B</span><span className="font-black text-slate-700">進階商業資訊 (選填)</span></div>
                     <Icon name={showAdvanced ? 'chevup' : 'chevdown'} size={18} className="text-slate-400" />
@@ -1463,7 +1475,6 @@
                       <FormField label="保底費用"><input type="text" value={formData.base_fee||''} onChange={e => setFormData({...formData, base_fee:e.target.value})} className={inputCls} /></FormField>
                       <FormField label="最新更新時間"><input type="text" placeholder="例：2026.03" value={formData.quote_updated_date||''} onChange={e => setFormData({...formData, quote_updated_date:e.target.value})} className={inputCls} /></FormField>
                       
-                      {/* 🎯 錨點 4：大頭貼網址 */}
                       <div id="tour-form-avatar" className="md:col-span-2">
                         <FormField label="大頭貼網址">
                           <div className="flex gap-2">
@@ -1490,7 +1501,6 @@
 
               <div className="px-8 py-5 border-t border-slate-100 flex justify-end gap-3 bg-white/80 shrink-0">
                 <button type="button" onClick={onClose} disabled={isSaving} className="px-6 py-3 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-2xl transition-all disabled:opacity-50">取消</button>
-                {/* 🎯 錨點 5：儲存按鈕 */}
                 <button id="tour-form-save" type="submit" disabled={isSaving} className="px-8 py-3 text-sm font-black text-white rounded-2xl shadow-glow transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:translate-y-0 disabled:shadow-none" style={{background:'linear-gradient(135deg,#E14f4b 0%,#f0857f 50%,#c75551 100%)'}}>{isSaving ? '處理中...' : (isEditing ? '儲存變更' : '建立檔案')}</button>
               </div>
             </form>
