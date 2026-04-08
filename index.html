@@ -1098,13 +1098,13 @@
             <div className="flex items-center gap-2 shrink-0">
               {data?.email && <a href={`mailto:${data.email}`} onClick={e=>e.stopPropagation()} className="hover:scale-110 hover:-translate-y-0.5 transition-all text-slate-400 hover:text-brand" title={`發送 Email: ${data.email}`}><Icon name="mail" size={18} /></a>}
               {data?.instagram_url && <a href={data.instagram_url} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} className="hover:scale-110 hover:-translate-y-0.5 transition-all"><IconInstagram /></a>}
+              
+              {/* ✅ 這是我們加入多重網址懸浮選單的地方 */}
               {Object.entries(displaySocialsObj).map(([platform, urls]) => {
-                // 1. 如果完全沒有網址，顯示灰色未啟用圖示
                 if (!urls || urls.length === 0 || (urls.length === 1 && !urls[0])) {
                   return <span key={platform} className="opacity-30 grayscale cursor-help" title={`${platform} (未提供連結)`} onClick={e=>e.stopPropagation()}>{getSocialIcon(platform)}</span>;
                 }
                 
-                // 2. 如果只有 1 個網址，維持原本乾淨俐落的單一按鈕
                 if (urls.length === 1) {
                   return (
                     <a key={platform} href={urls[0]} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} className="hover:scale-110 hover:-translate-y-0.5 transition-all" title={platform}>
@@ -1113,30 +1113,27 @@
                   );
                 }
 
-                // 3. 🌟 智慧收納：如果有 2 個以上的網址，顯示「數字徽章 + 懸浮選單」
                 return (
                   <div key={platform} className="relative group/soc flex items-center" onClick={e=>e.stopPropagation()}>
                     <div className="hover:scale-110 hover:-translate-y-0.5 transition-all cursor-help relative">
                       {getSocialIcon(platform)}
-                      {/* 紅色數字小徽章 */}
                       <span className="absolute -top-1.5 -right-1.5 bg-brand text-white text-[8px] font-black w-3.5 h-3.5 flex items-center justify-center rounded-full border-2 border-white shadow-sm leading-none z-10">
                         {urls.length}
                       </span>
                     </div>
                     
-                    {/* 深色懸浮點擊選單 */}
                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max bg-slate-800 p-1.5 rounded-xl opacity-0 group-hover/soc:opacity-100 transition-opacity pointer-events-none group-hover/soc:pointer-events-auto shadow-xl z-50 flex flex-col gap-1">
                       {urls.map((u, i) => u ? (
                         <a key={i} href={u} target="_blank" rel="noreferrer" className="text-[11px] font-bold text-white hover:bg-slate-700 px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors block text-center">
                           {platform} {i + 1}
                         </a>
                       ) : null)}
-                      {/* 懸浮選單下方的小箭頭 */}
                       <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-slate-800"></div>
                     </div>
                   </div>
                 );
               })}
+              
               {data?.reference_link && <a href={data.reference_link} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} className="hover:scale-110 hover:-translate-y-0.5 transition-all text-amber-500"><Icon name="bookmark" size={18} stroke="#f59e0b" strokeWidth={2.5} /></a>}
               {data?.anytag_url && <a href={data.anytag_url} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} className="text-slate-400 hover:text-brand hover:scale-110 transition-all"><Icon name="external" size={12} /></a>}
             </div>
