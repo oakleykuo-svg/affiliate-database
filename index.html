@@ -1505,6 +1505,7 @@
                           ))}
                         </div>
                       )}
+                    </FormField> {/* 👈 🌟 真正的兇手在這裡！請把這行補回來！ */}
                   
                   <FormField label="額外曝光管道" hint="💡 不同管道網址請直接換行貼上" hintStyle="gray" colSpan2><textarea rows="3" placeholder="💡 例：Line社群、FB私密社團、7-11賣貨便等... 請直接換行貼上不同管道的網址或說明" value={formData.extra_platforms||''} onChange={e => setFormData({...formData, extra_platforms:e.target.value})} className={`${inputCls} resize-none leading-relaxed border-dashed`} /></FormField>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
