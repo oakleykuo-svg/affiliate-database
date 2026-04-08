@@ -896,7 +896,26 @@
                   {filteredData.length > 0 && (
                     <div className="col-span-full flex justify-center items-center gap-4 py-8">
                       <button onClick={() => { setCurrentPage(p => Math.max(1,p-1)); document.getElementById('scroll-container').scrollTo({top:0,behavior:'smooth'}); }} disabled={currentPage===1} className="px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 font-bold hover:bg-slate-50 hover:text-brand disabled:opacity-40 transition-all shadow-sm text-sm">上一頁</button>
-                      <div className="text-slate-500 font-medium text-sm bg-white px-4 py-2.5 rounded-xl border border-slate-100 shadow-sm">第 <strong className="grad-brand">{currentPage}</strong> 頁，共 {totalPages} 頁<span className="text-slate-400 ml-2">/ {filteredData.length} 筆</span></div>
+                      
+                      {/* ✅ 升級：中間的頁面資訊變成「下拉式跳轉選單」 */}
+                      <div className="text-slate-500 font-medium text-sm bg-white px-4 py-2 rounded-xl border border-slate-100 shadow-sm flex items-center gap-2">
+                        第 
+                        <select 
+                          value={currentPage} 
+                          onChange={(e) => { 
+                            setCurrentPage(Number(e.target.value)); 
+                            document.getElementById('scroll-container').scrollTo({top:0,behavior:'smooth'}); 
+                          }}
+                          className="bg-brand/5 border border-brand/20 text-brand font-black pl-3 pr-2 py-1 rounded-lg cursor-pointer hover:bg-brand/10 transition-all outline-none focus:ring-2 focus:ring-brand/30"
+                        >
+                          {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+                            <option key={p} value={p}>{p}</option>
+                          ))}
+                        </select>
+                        頁，共 {totalPages} 頁
+                        <span className="text-slate-400 ml-1.5 hidden sm:inline">/ {filteredData.length} 筆</span>
+                      </div>
+
                       <button onClick={() => { setCurrentPage(p => Math.min(totalPages,p+1)); document.getElementById('scroll-container').scrollTo({top:0,behavior:'smooth'}); }} disabled={currentPage===totalPages} className="px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 font-bold hover:bg-slate-50 hover:text-brand disabled:opacity-40 transition-all shadow-sm text-sm">下一頁</button>
                     </div>
                   )}
