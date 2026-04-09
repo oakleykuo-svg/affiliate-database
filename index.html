@@ -201,6 +201,8 @@
     const IconXHS = () => (<span className="bg-[#ff2442] text-white text-[9px] px-1 rounded shadow-sm font-bold tracking-wider leading-none flex items-center justify-center" style={{ height:'18px', width:'max-content' }}>小紅書</span>);
 
     const getSocialIcon = (platformName) => {
+      // ✅ 支援所有統一社交平台的回傳 (包含 IG)
+      if (platformName.includes('Instagram')) return <IconInstagram />;
       if (platformName.includes('TikTok')) return <IconTikTok />;
       if (platformName.includes('Threads')) return <IconThreads />;
       if (platformName.includes('小紅書')) return <IconXHS />;
@@ -236,38 +238,29 @@
     const COLLAB_OPTIONS = ['團購', '優惠碼/折扣碼', '純分潤', '尚未分類'];
     const PROMO_PLATFORM_OPTIONS = ['IG', 'YT', 'FB', 'TikTok', 'Line群', '其他'];
 
-    // ✅ 升級：智慧型網址正規化，過濾掉行銷追蹤碼，完美保留 FB 的 id 與 YT 的完整路徑
     const normalizeUrl = (url) => {
       if (!url || typeof url !== 'string') return '';
       let urlString = url.trim().toLowerCase();
-      // 如果沒有 http 開頭，自動補上才能被 URL 解析器正確讀取
       if (!urlString.startsWith('http://') && !urlString.startsWith('https://')) {
         urlString = 'https://' + urlString;
       }
       
       try {
         const parsed = new URL(urlString);
-        
-        // 建立「垃圾追蹤碼黑名單」，只殺這些，其他都保留
         const trackingParams = [
           'fbclid', 'igsh', 'ref', 'utm_source', 'utm_medium', 
           'utm_campaign', 'utm_content', 'utm_term', 'gclid'
         ];
-        
         trackingParams.forEach(param => parsed.searchParams.delete(param));
-
-        // 重組乾淨的網址 (去掉 www. 以達到更寬鬆的匹配)
         let host = parsed.hostname.replace(/^www\./, '');
         let result = host + parsed.pathname + parsed.search;
-        return result.replace(/\/$/, ''); // 去除結尾的斜線
+        return result.replace(/\/$/, '');
       } catch (e) {
-        // 若遇到不合規的奇怪網址，退回基礎的字串清理
         let clean = urlString.replace(/^https?:\/\//, '').replace(/^www\./, '');
         return clean.replace(/\/$/, '');
       }
     };
 
-    // ✅ 升級 1：解析 JSON，並具備「舊版字串自動轉陣列」的向下相容能力
     const parseOtherSocials = (jsonStr) => {
       if (!jsonStr || typeof jsonStr !== 'string') return {};
       try {
@@ -281,7 +274,6 @@
           return parsed;
         }
         
-        // 🌟 向下相容：把舊資料的 "字串" 自動包裝成 ["陣列"]
         const normalized = {};
         Object.entries(parsed).forEach(([key, val]) => {
           if (Array.isArray(val)) {
@@ -294,36 +286,38 @@
       } catch { return {}; }
     };
 
-    // ✅ 升級 2：顯示資料合併時，也使用陣列格式
+    // ✅ 升級版 mergeDisplaySocials：完美處理 IG、YT、FB 從舊獨立欄位轉入 JSON 系統
     const mergeDisplaySocials = (data) => {
-      const safeParsed = parseOtherSocials(data?.other_social_platforms);
-      if (data?.youtube_url && (!safeParsed['YouTube'] || safeParsed['YouTube'].length === 0 || safeParsed['YouTube'][0] === '')) {
+      if (!data) return {};
+      const safeParsed = parseOtherSocials(data.other_social_platforms);
+      if (data.instagram_url && (!safeParsed['Instagram'] || safeParsed['Instagram'].length === 0 || safeParsed['Instagram'][0] === '')) {
+        safeParsed['Instagram'] = [data.instagram_url];
+      }
+      if (data.youtube_url && (!safeParsed['YouTube'] || safeParsed['YouTube'].length === 0 || safeParsed['YouTube'][0] === '')) {
         safeParsed['YouTube'] = [data.youtube_url];
       }
-      if (data?.facebook_url && (!safeParsed['Facebook'] || safeParsed['Facebook'].length === 0 || safeParsed['Facebook'][0] === '')) {
+      if (data.facebook_url && (!safeParsed['Facebook'] || safeParsed['Facebook'].length === 0 || safeParsed['Facebook'][0] === '')) {
         safeParsed['Facebook'] = [data.facebook_url];
       }
       return safeParsed;
     };
 
-    // ✅ 升級 3：防呆雷達現在可以掃描陣列裡的所有網址了
+    // ✅ 升級防呆雷達：直接使用 mergeDisplaySocials 萃取所有網址
     const extractAllUrls = (item) => {
       if (!item) return [];
       const urls = [];
-      if (item.instagram_url) urls.push(normalizeUrl(item.instagram_url));
-      if (item.youtube_url) urls.push(normalizeUrl(item.youtube_url));
-      if (item.facebook_url) urls.push(normalizeUrl(item.facebook_url));
-      
-      const parsedOther = parseOtherSocials(item.other_social_platforms);
-      Object.values(parsedOther).forEach(urlArray => {
+      const merged = mergeDisplaySocials(item);
+      Object.values(merged).forEach(urlArray => {
         if (Array.isArray(urlArray)) {
           urlArray.forEach(u => {
             if (u && typeof u === 'string') urls.push(normalizeUrl(u));
           });
         }
       });
-      return urls.filter(Boolean);
+      // 過濾重複的 URL
+      return [...new Set(urls)].filter(Boolean);
     };
+
     const isOlderThan6Months = (dateStr, format = 'iso') => {
       if (!dateStr || typeof dateStr !== 'string') return false;
       let year, month;
@@ -524,7 +518,6 @@
             if (!hasMatch) return false;
           }
           
-          // 邏輯更新：過濾有報價紀錄的網紅
           if (advFilters.hasQuote) {
             const hasBaseFee = item.base_fee && item.base_fee.trim() !== '' && item.base_fee.trim() !== '無' && item.base_fee.trim() !== '-';
             const hasCommission = item.commission_rate && item.commission_rate.trim() !== '' && item.commission_rate.trim() !== '無' && item.commission_rate.trim() !== '-';
@@ -633,7 +626,6 @@
       const openEditForm = (creator) => { setSelectedCreator(null); setEditingData(creator); setIsFormOpen(true); };
       const closeForm = () => { setIsFormOpen(false); setEditingData(null); };
 
-      // 🏠 重新設定所有條件
       const handleResetAll = () => {
         setSearchTerm('');
         setSelectedCategories([]);
@@ -644,13 +636,11 @@
         document.getElementById('scroll-container')?.scrollTo({top: 0, behavior: 'smooth'});
       };
 
-      // 🛒 購物車切換邏輯
       const toggleSelection = (id, e) => {
         e.stopPropagation(); 
         setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
       };
 
-      // 📦 匯出功能
       const handleExportCSV = () => {
         if (!['admin', 'editor'].includes(userRole)) {
           alert('權限不足：只有管理員和編輯者能匯出資料。');
@@ -673,15 +663,19 @@
         };
 
         const rows = dataToExport.map(d => {
-          const parsedSocials = parseOtherSocials(d.other_social_platforms);
+          const parsedSocials = mergeDisplaySocials(d);
           const otherLinks = [];
           Object.entries(parsedSocials).forEach(([k, v]) => {
-            if (v && k !== 'YouTube' && k !== 'Facebook') otherLinks.push(`${k}: ${v}`);
+            if (v && k !== 'YouTube' && k !== 'Facebook' && k !== 'Instagram') {
+              if (Array.isArray(v)) {
+                v.forEach(url => { if(url) otherLinks.push(`${k}: ${url}`); });
+              }
+            }
           });
 
           return [
-            escapeCSV(d.name), escapeCSV(d.followers), escapeCSV(d.email), escapeCSV(d.instagram_url), escapeCSV(d.youtube_url),
-            escapeCSV(d.facebook_url), escapeCSV(otherLinks.join('\n')), escapeCSV(d.extra_platforms), escapeCSV(d.collaboration_tags),
+            escapeCSV(d.name), escapeCSV(d.followers), escapeCSV(d.email), escapeCSV(d.instagram_url || (parsedSocials['Instagram']?.[0] || '')), escapeCSV(d.youtube_url || (parsedSocials['YouTube']?.[0] || '')),
+            escapeCSV(d.facebook_url || (parsedSocials['Facebook']?.[0] || '')), escapeCSV(otherLinks.join('\n')), escapeCSV(d.extra_platforms), escapeCSV(d.collaboration_tags),
             escapeCSV(d.promo_platforms), escapeCSV(`保底: ${d.base_fee || '無'} / 分潤: ${d.commission_rate || '無'}`), escapeCSV(d.notes)
           ].join(',');
         });
@@ -697,35 +691,25 @@
         document.body.removeChild(link);
       };
 
-      // 🎓 新手導覽動畫 (Driver.js) - 主畫面
       const startTour = () => {
         if (!window.driver) return alert('載入導覽套件失敗，請稍後重試。');
-        
         const steps = [
           { element: '#tour-logo', popover: { title: '1. 回到首頁', description: '點擊 LOGO 可以隨時清除所有搜尋與篩選條件，回到最乾淨的初始畫面。', side: "bottom", align: 'start' }},
           { element: '#tour-search', popover: { title: '2. 快速搜尋', description: '直接輸入網紅姓名、IG帳號、標籤或備註來尋找人選。', side: "bottom", align: 'start' }},
           { element: '#tour-advanced', popover: { title: '3. 進階篩選與領域', description: '點擊展開篩選面板，現在可以「跨領域複選」類別、開團平台等條件了！', side: "bottom", align: 'start' }}
         ];
 
-        // 只有編輯權限以上的人，才會在導覽中看到匯出與新增的步驟
         if (['admin', 'editor'].includes(userRole)) {
           steps.push({ element: '#tour-export', popover: { title: '4. 匯出與購物車', description: '勾選下方網紅卡片左上角的「＋」號加入購物車，這顆按鈕就會自動變身，讓你精準匯出名單。', side: "bottom", align: 'start' }});
           steps.push({ element: '#tour-add', popover: { title: '5. 新增網紅', description: '隨時把最新發現的網紅建檔，豐富你們的專屬資料庫吧！', side: "bottom", align: 'start' }});
         }
 
         const driverObj = window.driver.js.driver({
-          showProgress: true,
-          nextBtnText: '下一步',
-          prevBtnText: '上一步',
-          doneBtnText: '完成教學',
-          steps: steps
+          showProgress: true, nextBtnText: '下一步', prevBtnText: '上一步', doneBtnText: '完成教學', steps: steps
         });
         driverObj.drive();
       };
 
-      // ---------------------------------------------------------
-      // 4. 🚀 提早退場區塊
-      // ---------------------------------------------------------
       if (isCheckingAuth) {
         return (
           <div className="min-h-screen login-bg flex items-center justify-center">
@@ -771,15 +755,9 @@
         );
       }
 
-      // ---------------------------------------------------------
-      // 5. 畫面渲染區塊 
-      // ---------------------------------------------------------
       return (
         <div className="min-h-screen flex font-sans">
-          {/* ── MAIN (全寬無側邊欄) ────────────────────────────────────────── */}
           <main className="flex-1 flex flex-col min-h-screen overflow-hidden relative">
-            
-            {/* 總資料數浮動標籤 (右下角) */}
             <div className="fixed bottom-6 right-6 text-[11px] font-bold text-slate-500 bg-white/80 backdrop-blur-xl px-4 py-2.5 rounded-full border border-slate-200 shadow-glass pointer-events-none z-40 flex items-center gap-2 animate-fade-in">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand/50 opacity-75"></span>
@@ -789,8 +767,6 @@
             </div>
 
             <header className="bg-white/80 backdrop-blur-xl border-b border-slate-100 px-4 lg:px-6 py-3 lg:py-4 flex flex-col lg:flex-row items-center justify-between sticky top-0 z-50 shadow-[0_1px_20px_rgba(0,0,0,0.04)] gap-4">
-              
-              {/* 🏠 LOGO 與 回首頁 */}
               <div className="w-full lg:w-auto flex items-center justify-between shrink-0">
                 <div className="cursor-pointer group flex items-center" onClick={handleResetAll} title="回到首頁並清除所有條件" id="tour-logo">
                   <h1 className="text-[22px] lg:text-2xl font-black tracking-tight leading-none group-hover:opacity-80 transition-opacity">
@@ -800,7 +776,6 @@
                 </div>
               </div>
 
-              {/* 🔍 搜尋與篩選 */}
               <div className="flex items-center w-full lg:max-w-xl xl:max-w-2xl gap-3 flex-1" id="tour-search">
                 <div className="relative flex-1">
                   <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"><Icon name="search" size={17} /></div>
@@ -814,14 +789,11 @@
                 </button>
               </div>
 
-              {/* ⚙️ 操作按鈕區 */}
               <div className="flex items-center gap-2 lg:gap-3 w-full lg:w-auto overflow-x-auto pb-1 lg:pb-0 shrink-0">
-                {/* 🎓 導覽按鈕 */}
                 <button onClick={startTour} className="shrink-0 flex items-center justify-center gap-1.5 text-slate-500 bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-xl text-xs font-bold transition-all hover:bg-white hover:text-brand hover:border-brand/30 shadow-sm" title="操作導覽">
                   <Icon name="help" size={15} /> <span className="hidden lg:inline">導覽</span>
                 </button>
 
-                {/* 🛒 購物車匯出按鈕切換 (僅限有權限者) */}
                 {['admin', 'editor'].includes(userRole) && (
                   <div id="tour-export">
                     {selectedIds.length > 0 ? (
@@ -835,7 +807,6 @@
                   </div>
                 )}
 
-                {/* 新增網紅按鈕 (僅限有權限者) */}
                 {['admin', 'editor'].includes(userRole) && (
                   <div id="tour-add">
                     <button onClick={openCreateForm} className="shrink-0 flex items-center justify-center gap-2 text-white px-5 py-2.5 rounded-2xl text-sm font-black transition-all shadow-glow hover:shadow-lg hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, #E14f4b 0%, #f0857f 50%, #c75551 100%)' }}>
@@ -857,7 +828,6 @@
             {showAdvancedFilters && (
               <div className="relative bg-white/90 backdrop-blur-xl border-b border-slate-100 px-6 py-5 shadow-sm z-40 animate-slide-down">
                 <div className="max-w-6xl flex flex-col gap-6">
-                  {/* 第一排：領域與平台 */}
                   <div className="flex flex-col lg:flex-row gap-6">
                     <div className="space-y-2 w-full lg:w-64 shrink-0 z-20">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.12em]">領域類別 Categories</label>
@@ -905,7 +875,6 @@
                     </div>
                   </div>
 
-                  {/* 第二排：粉絲數與 Tags */}
                   <div className="flex flex-col lg:flex-row gap-6 items-start">
                     <div className="space-y-2 w-full lg:w-64 shrink-0">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.12em]">粉絲數級別</label>
@@ -931,7 +900,6 @@
                         </div>
                         
                         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 ml-auto shrink-0 mt-2 sm:mt-0">
-                          {/* 💰 僅顯示有報價 Toggle */}
                           <label className="flex items-center gap-2 cursor-pointer group bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100 hover:bg-slate-100 transition-colors shadow-sm">
                             <span className="text-xs font-bold text-slate-600 group-hover:text-brand transition-colors">💰 僅顯示有報價</span>
                             <div className="relative">
@@ -941,7 +909,6 @@
                             </div>
                           </label>
 
-                          {/* 🧹 重設全部條件按鈕 */}
                           <button onClick={handleResetAll} className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-slate-500 hover:text-brand bg-slate-50 hover:bg-brand/5 rounded-xl transition-all whitespace-nowrap border border-slate-100 hover:border-brand/20 shadow-sm">
                             <Icon name="refresh" size={14} /> 重設全部條件
                           </button>
@@ -993,7 +960,6 @@
             </div>
           </main>
 
-          {/* ✅ 移除延遲，改為同步直球跳轉，依賴 React 的自動批次更新 */}
           {isFormOpen && <FormModal existingData={data} categories={categories} initialData={editingData} onClose={closeForm} onSave={handleSaveCreator} onViewDuplicate={(creator) => { closeForm(); setSelectedCreator(creator); }} />}
           {selectedCreator && <DetailModal data={selectedCreator} userRole={userRole} onClose={() => setSelectedCreator(null)} onEdit={() => openEditForm(selectedCreator)} onDelete={() => { setSelectedCreator(null); setCreatorToDelete(selectedCreator); }} />}
           {creatorToDelete && <ConfirmDeleteModal data={creatorToDelete} onClose={() => setCreatorToDelete(null)} onConfirm={handleDeleteCreator} />}
@@ -1097,9 +1063,8 @@
             </div>
             <div className="flex items-center gap-2 shrink-0">
               {data?.email && <a href={`mailto:${data.email}`} onClick={e=>e.stopPropagation()} className="hover:scale-110 hover:-translate-y-0.5 transition-all text-slate-400 hover:text-brand" title={`發送 Email: ${data.email}`}><Icon name="mail" size={18} /></a>}
-              {data?.instagram_url && <a href={data.instagram_url} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} className="hover:scale-110 hover:-translate-y-0.5 transition-all"><IconInstagram /></a>}
               
-              {/* ✅ 這是我們加入多重網址懸浮選單的地方 */}
+              {/* ✅ 支援 IG 及其他所有平台的多重網址懸浮選單 */}
               {Object.entries(displaySocialsObj).map(([platform, urls]) => {
                 if (!urls || urls.length === 0 || (urls.length === 1 && !urls[0])) {
                   return <span key={platform} className="opacity-30 grayscale cursor-help" title={`${platform} (未提供連結)`} onClick={e=>e.stopPropagation()}>{getSocialIcon(platform)}</span>;
@@ -1210,7 +1175,8 @@
                     <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.12em] mb-3">Contact & Links</h3>
                     <div className="space-y-2.5">
                       {data.email && <a href={`mailto:${data.email}`} className="flex items-center gap-3 text-sm font-bold text-slate-700 bg-white p-3.5 rounded-2xl border-2 border-slate-200 hover:border-brand/30 hover:shadow-md hover:-translate-y-0.5 transition-all"><span className="w-5 h-5 flex items-center justify-center text-slate-400"><Icon name="mail" size={20} /></span>{data.email}</a>}
-                      {data.instagram_url && <a href={data.instagram_url} target="_blank" rel="noreferrer" className="flex items-center gap-3 text-sm font-bold text-slate-700 bg-slate-50 p-3.5 rounded-2xl border border-slate-100 hover:shadow-md hover:-translate-y-0.5 transition-all"><IconInstagram /> Instagram</a>}
+                      
+                      {/* ✅ 支援 IG 及其他所有平台的多重網址獨立展開渲染 */}
                       {Object.entries(displaySocialsObj).map(([platform, urls]) => {
                         if (!urls || urls.length === 0 || (urls.length === 1 && !urls[0])) {
                           return (
@@ -1226,6 +1192,7 @@
                           </a>
                         ) : null);
                       })}
+                      
                       {data.reference_link && <a href={data.reference_link} target="_blank" rel="noreferrer" className="flex items-center gap-3 text-sm font-bold text-slate-700 bg-amber-50 p-3.5 rounded-2xl border border-amber-100 hover:shadow-md hover:-translate-y-0.5 transition-all"><Icon name="bookmark" size={18} stroke="#f59e0b" strokeWidth={2.5} /> 參考貼文</a>}
                       {data.anytag_url && <a href={data.anytag_url} target="_blank" rel="noreferrer" className="flex items-center gap-3 text-sm font-black text-brand bg-brand/5 p-3.5 rounded-2xl border border-brand/15 hover:shadow-md hover:-translate-y-0.5 transition-all"><Icon name="external" size={14} className="text-brand" /> AnyTag Profile</a>}
                     </div>
@@ -1254,36 +1221,47 @@
       const collabRef = useRef(null);
       const socialsRef = useRef(null);
 
-      const socialOptions = ['YouTube','Facebook','TikTok','Threads','小紅書','X (Twitter)','Discord','Twitch','Podcast','其他 (Blog/Website/Link in bio)'];
+      // ✅ 將 Instagram 加入統一下拉選單
+      const socialOptions = ['Instagram','YouTube','Facebook','TikTok','Threads','小紅書','X (Twitter)','Discord','Twitch','Podcast','其他 (Blog/Website/Link in bio)'];
 
       const [formData, setFormData] = useState({
         id:null, instagram_url:'', user_id:'', name:'', email:'', followers:'', category:'',
         collaboration_tags:'', promo_platforms:'', avatar_url:'', commission_rate:'', base_fee:'',
         youtube_url:'', facebook_url:'', anytag_url:'', extra_platforms:'',
-        other_social_platforms:'', reference_link:'', quote_updated_date:'', notes:''
+        other_social_platforms: JSON.stringify({"Instagram": [""]}), // ✅ 新增時預設給一個 IG 欄位
+        reference_link:'', quote_updated_date:'', notes:''
       });
 
       useEffect(() => {
         if (initialData) {
-          const parsed = parseOtherSocials(initialData.other_social_platforms);
-          const safeParsed = typeof parsed === 'object' && parsed !== null ? parsed : {};
-          if (initialData.youtube_url && !safeParsed['YouTube']) safeParsed['YouTube'] = initialData.youtube_url;
-          if (initialData.facebook_url && !safeParsed['Facebook']) safeParsed['Facebook'] = initialData.facebook_url;
+          // ✅ 使用大一統邏輯，將舊版資料直接轉換為陣列格式
+          const safeParsed = mergeDisplaySocials(initialData);
           setFormData({ ...initialData, other_social_platforms: JSON.stringify(safeParsed), user_id: initialData.user_id||'' });
         }
       }, [initialData]);
 
       const otherSocialsObj = useMemo(() => parseOtherSocials(formData.other_social_platforms), [formData.other_social_platforms]);
 
+      // ✅ 自動提取 Instagram ID 邏輯更新 (適應陣列架構)
       useEffect(() => {
+        const igUrl = otherSocialsObj['Instagram']?.[0] || '';
         const hasOther = Object.keys(otherSocialsObj).length > 0;
+        
         setFormData(prev => {
           let nextId = prev.user_id;
-          if (!prev.instagram_url && hasOther && !prev.user_id) nextId = 'N/A';
-          if (!prev.instagram_url && !hasOther && prev.user_id === 'N/A') nextId = '';
+          
+          if (igUrl) {
+            const extracted = extractIgUserId(igUrl);
+            if (extracted && (!nextId || nextId === 'N/A')) nextId = extracted;
+          } else if (hasOther && !nextId) {
+            nextId = 'N/A';
+          } else if (!hasOther && nextId === 'N/A') {
+            nextId = '';
+          }
+          
           return prev.user_id === nextId ? prev : { ...prev, user_id: nextId };
         });
-      }, [formData.instagram_url, formData.other_social_platforms]);
+      }, [formData.other_social_platforms]);
 
       useEffect(() => {
         const handleClickOutside = e => {
@@ -1294,13 +1272,6 @@
         return () => document.removeEventListener('mousedown', handleClickOutside);
       }, []);
 
-      const handleIgChange = (e) => {
-        const url = e.target.value;
-        const extracted = extractIgUserId(url);
-        setFormData(prev => ({ ...prev, instagram_url:url, user_id: url ? (extracted||prev.user_id) : prev.user_id }));
-      };
-
-      // ✅ 勾選平台時，初始化為一個「裝著空字串的陣列」
       const handleSocialCheck = (opt, checked) => {
         const obj = {...otherSocialsObj};
         if (checked) obj[opt] = ['']; 
@@ -1308,7 +1279,6 @@
         setFormData({...formData, other_social_platforms: JSON.stringify(obj)});
       };
 
-      // ✅ 更新陣列中特定位置 (index) 的網址
       const handleSocialUrl = (opt, index, url) => {
         const obj = {...otherSocialsObj};
         if (!obj[opt]) obj[opt] = [''];
@@ -1316,21 +1286,19 @@
         setFormData({...formData, other_social_platforms: JSON.stringify(obj)});
       };
 
-      // ✅ 新增第二個/第三個輸入框
       const addSocialUrl = (opt) => {
         const obj = {...otherSocialsObj};
         if (!obj[opt]) obj[opt] = [''];
-        obj[opt].push(''); // 在陣列尾端塞入一個空的輸入格
+        obj[opt].push('');
         setFormData({...formData, other_social_platforms: JSON.stringify(obj)});
       };
 
-      // ✅ 刪除指定的輸入框
       const removeSocialUrl = (opt, index) => {
         const obj = {...otherSocialsObj};
         if (obj[opt] && obj[opt].length > 1) {
-          obj[opt].splice(index, 1); // 刪除該欄位
+          obj[opt].splice(index, 1);
         } else {
-          obj[opt] = ['']; // 如果只剩一個，就清空它而不是刪除整個平台
+          obj[opt] = [''];
         }
         setFormData({...formData, other_social_platforms: JSON.stringify(obj)});
       };
@@ -1344,20 +1312,17 @@
         if (!formData.followers) missingFields.push('粉絲數');
         if (!formData.user_id) missingFields.push('帳號 ID');
         if (!formData.collaboration_tags?.trim()) missingFields.push('合作模式 Tags');
-        if (!formData.instagram_url?.trim() && Object.keys(otherSocialsObj).length === 0) {
-          missingFields.push('社群平台 (請至少填寫 IG 網址或選擇其他平台)');
+        
+        // 驗證是否有填寫社群網址
+        const allInputUrls = Object.values(otherSocialsObj).flat().filter(u => u && u.trim() !== '');
+        if (allInputUrls.length === 0) {
+          missingFields.push('社群平台網址 (請至少填寫一個平台)');
         }
 
         if (missingFields.length > 0) {
           alert(`⚠️ 請填寫以下必填欄位：\n\n- ${missingFields.join('\n- ')}`);
           return;
         }
-
-        // 展平所有陣列，把所有網址抽出來做格式檢查
-        const allInputUrls = [
-          formData.instagram_url,
-          ...Object.values(otherSocialsObj).flat() 
-        ].filter(u => u && u.trim() !== '');
 
         const invalidUrls = allInputUrls.filter(u => !/^https?:\/\//i.test(u.trim()));
         if (invalidUrls.length > 0) {
@@ -1387,24 +1352,24 @@
         try {
           const payload = {...formData};
           payload.followers = parseInt(String(payload.followers).replace(/,/g,''),10) || 0;
+          
+          // ✅ 為了向下相容資料庫既有的字串欄位，儲存時把第一組網址放回去
+          payload.instagram_url = (otherSocialsObj['Instagram'] && otherSocialsObj['Instagram'][0]) || '';
           payload.youtube_url = (otherSocialsObj['YouTube'] && otherSocialsObj['YouTube'][0]) || '';
           payload.facebook_url = (otherSocialsObj['Facebook'] && otherSocialsObj['Facebook'][0]) || '';
+          
           await onSave(payload, isEditing, initialData?.id);
         } catch (err) {
           console.error("Form Submit Failed:", err);
         } finally { setIsSaving(false); }
       };
 
-      // 🎓 表單填寫專屬的導覽動畫
       const startFormTour = () => {
         if (!window.driver) return alert('載入導覽套件失敗，請稍後重試。');
         const driverObj = window.driver.js.driver({
-          showProgress: true,
-          nextBtnText: '下一步',
-          prevBtnText: '上一步',
-          doneBtnText: '完成教學',
+          showProgress: true, nextBtnText: '下一步', prevBtnText: '上一步', doneBtnText: '完成教學',
           steps: [
-            { element: '#tour-form-social', popover: { title: '1. 社群網址', description: 'IG網址與其他平台「擇一」填寫即可。若有填寫 IG，系統會自動幫您抓取帳號 ID。', side: "bottom", align: 'start' }},
+            { element: '#tour-form-social', popover: { title: '1. 社群網址', description: '支援多個平台與多重網址，有填寫 IG 系統會自動幫您抓取帳號 ID。', side: "bottom", align: 'start' }},
             { element: '#tour-form-followers', popover: { title: '2. 粉絲數', description: '請直接輸入純數字，例如「150000」。若有多個平台，請填寫粉絲數最高的那個。', side: "bottom", align: 'start' }},
             { element: '#tour-form-advanced', popover: { title: '3. 進階商業資訊', description: '點擊此區塊可以展開填寫更詳細的保底費用、分潤比率以及開團平台等進階資訊。', side: "top", align: 'start' }},
             { element: '#tour-form-avatar', popover: { title: '4. 大頭貼網址', description: '請貼上圖片的直連網址。如果不知道怎麼抓取，可以點擊旁邊的「教學」按鈕獲取秘技！', side: "top", align: 'start' }},
@@ -1444,7 +1409,6 @@
                         </p>
                       </div>
                     </div>
-                    {/* ✅ 加入 e.preventDefault() 與 e.stopPropagation() 防止表單誤動作與事件穿透 */}
                     <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onViewDuplicate(duplicateConflict); }} className="shrink-0 bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl text-xs font-black shadow-sm transition-colors flex items-center gap-1.5 w-full sm:w-auto justify-center">
                       <Icon name="external" size={14} /> 查看該網紅檔案
                     </button>
@@ -1457,11 +1421,11 @@
                   </div>
                   
                   <div id="tour-form-social" className="space-y-5">
-                    <FormField label="Instagram 網址" hint="💡 與其他社群平台擇一填寫" required colSpan2><input type="text" placeholder="https://instagram.com/..." value={formData.instagram_url} onChange={handleIgChange} className={inputCls} /></FormField>
-                    <FormField label="其他社群平台網址" hint="💡 與Instagram網址擇一填寫" required colSpan2>
+                    {/* ✅ 完美整合的「大一統」社群平台 UI */}
+                    <FormField label="社群平台網址" hint="💡 支援多平台、多重網址，點擊右方箭頭新增平台" required colSpan2>
                       <div ref={socialsRef} className="relative mb-3">
                         <div onClick={() => setShowSocialsDD(!showSocialsDD)} className={`${inputCls} cursor-pointer flex justify-between items-center ${showSocialsDD ? 'ring-2 ring-brand/30 border-brand' : ''}`}>
-                          <span className={Object.keys(otherSocialsObj).length > 0 ? "text-slate-800 font-bold truncate pr-2" : "text-slate-400"}>{Object.keys(otherSocialsObj).length > 0 ? Object.keys(otherSocialsObj).join(', ') : '新增 YouTube, TikTok, Threads...'}</span>
+                          <span className={Object.keys(otherSocialsObj).length > 0 ? "text-slate-800 font-bold truncate pr-2" : "text-slate-400"}>{Object.keys(otherSocialsObj).length > 0 ? Object.keys(otherSocialsObj).join(', ') : '新增 Instagram, YouTube, TikTok...'}</span>
                           <span className={`text-slate-400 transition-transform ${showSocialsDD ? 'rotate-180' : ''}`}><Icon name="chevdown" size={18} /></span>
                         </div>
                         {showSocialsDD && (
@@ -1477,9 +1441,9 @@
                           </div>
                         )}
                       </div>
-                     {/* ✅ 升級後的動態多重網址輸入 UI */}
+                      
                       {Object.keys(otherSocialsObj).length > 0 && (
-                        <div className="space-y-4 p-5 bg-slate-50 border border-slate-100 rounded-2xl mb-3 shadow-inner">
+                        <div className="space-y-4 p-5 bg-slate-50 border border-slate-100 rounded-2xl shadow-inner">
                           <div className="text-xs font-bold text-slate-400 flex items-center gap-1.5 mb-1"><Icon name="info" size={14} /> 貼上對應平台網址：</div>
                           
                           {Object.entries(otherSocialsObj).map(([opt, urls]) => (
@@ -1505,8 +1469,8 @@
                           ))}
                         </div>
                       )}
-                    </FormField> 
-                  </div> {/* 👈 🌟 就是少了這一個 div 結尾！請務必補上 */}
+                    </FormField>
+                  </div>
                   
                   <FormField label="額外曝光管道" hint="💡 不同管道網址請直接換行貼上" hintStyle="gray" colSpan2><textarea rows="3" placeholder="💡 例：Line社群、FB私密社團、7-11賣貨便等... 請直接換行貼上不同管道的網址或說明" value={formData.extra_platforms||''} onChange={e => setFormData({...formData, extra_platforms:e.target.value})} className={`${inputCls} resize-none leading-relaxed border-dashed`} /></FormField>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
