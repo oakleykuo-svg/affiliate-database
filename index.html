@@ -1639,7 +1639,7 @@
                       </div>
 
                       <FormField label="AnyTag Profile 網址"><input type="text" value={formData.anytag_url||''} onChange={e => setFormData({...formData, anytag_url:e.target.value})} className={inputCls} /></FormField>
-                      <FormField label="參考貼文連結"><input type="text" placeholder="https://..." value={formData.reference_link||''} onChange={e => setFormData({...formData, reference_link:e.target.value})} className={inputCls} /></FormField>
+                      <FormField label="參考貼文/連結"><input type="text" placeholder="https://..." value={formData.reference_link||''} onChange={e => setFormData({...formData, reference_link:e.target.value})} className={inputCls} /></FormField>
                       <FormField label="備註 Notes" colSpan2><textarea rows="3" placeholder="💡 例如：過往業績表現、合作注意事項、特殊禁忌..." value={formData.notes} onChange={e => setFormData({...formData, notes:e.target.value})} className={`${inputCls} resize-none`} /></FormField>
                     </div>
                   )}
