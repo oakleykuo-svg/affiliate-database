@@ -201,7 +201,6 @@
     const IconXHS = () => (<span className="bg-[#ff2442] text-white text-[9px] px-1 rounded shadow-sm font-bold tracking-wider leading-none flex items-center justify-center" style={{ height:'18px', width:'max-content' }}>小紅書</span>);
 
     const getSocialIcon = (platformName) => {
-      // ✅ 支援所有統一社交平台的回傳 (包含 IG)
       if (platformName.includes('Instagram')) return <IconInstagram />;
       if (platformName.includes('TikTok')) return <IconTikTok />;
       if (platformName.includes('Threads')) return <IconThreads />;
@@ -971,6 +970,7 @@
     // 🃏 CREATOR CARD
     // ============================================================
     function CreatorCard({ data, userRole, onClick, isSelected, onToggleSelect }) {
+      const [copiedEmail, setCopiedEmail] = useState(false); // ✅ 新增：信箱複製狀態
       const tier = getTierInfo(data.followers);
       const collabTags = parseTags(data.collaboration_tags);
       const promoPlats = parseTags(data.promo_platforms);
@@ -978,6 +978,15 @@
       const profileOutdated = isOlderThan6Months(data.last_updated_date, 'iso');
       const lastUpdatedText = formatDate(data.last_updated_date);
       const displaySocialsObj = mergeDisplaySocials(data);
+
+      // ✅ 新增：一鍵無聲複製信箱邏輯
+      const handleCopyEmail = (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        navigator.clipboard.writeText(data.email);
+        setCopiedEmail(true);
+        setTimeout(() => setCopiedEmail(false), 2000);
+      };
 
       return (
         <div onClick={onClick} className={`bg-white/80 backdrop-blur-xl border ${isSelected ? 'border-brand shadow-[0_0_0_2px_rgba(225,79,75,0.2)]' : 'border-slate-100 hover:border-brand/20 hover:shadow-[0_16px_48px_rgba(225,79,75,0.10)]'} hover:-translate-y-1.5 transition-all duration-300 rounded-[1.5rem] cursor-pointer flex flex-col p-4 relative group animate-fade-in`}>
@@ -1061,20 +1070,47 @@
                 </div>
               </div>
             </div>
+            
+            {/* ✅ 所有右下角 Icon 全面升級淺色提示框與防呆層 */}
             <div className="flex items-center gap-2 shrink-0">
-              {data?.email && <a href={`mailto:${data.email}`} onClick={e=>e.stopPropagation()} className="hover:scale-110 hover:-translate-y-0.5 transition-all text-slate-400 hover:text-brand" title={`發送 Email: ${data.email}`}><Icon name="mail" size={18} /></a>}
               
-              {/* ✅ 支援 IG 及其他所有平台的多重網址懸浮選單 */}
+              {/* 信箱：直接複製 */}
+              {data?.email && (
+                <div className="relative group/btn flex items-center justify-center" onClick={e=>e.stopPropagation()}>
+                  <button type="button" onClick={handleCopyEmail} className="hover:scale-110 hover:-translate-y-0.5 transition-all text-slate-400 hover:text-brand focus:outline-none">
+                    <Icon name="mail" size={18} />
+                  </button>
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max bg-white text-slate-600 text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-sm border border-slate-100 opacity-0 group-hover/btn:opacity-100 transition-opacity pointer-events-none z-50 flex items-center gap-1">
+                    {copiedEmail ? <span className="text-emerald-500">✅ 已複製！</span> : '複製信箱'}
+                  </div>
+                </div>
+              )}
+              
+              {/* 社群平台連結 */}
               {Object.entries(displaySocialsObj).map(([platform, urls]) => {
                 if (!urls || urls.length === 0 || (urls.length === 1 && !urls[0])) {
-                  return <span key={platform} className="opacity-30 grayscale cursor-help" title={`${platform} (未提供連結)`} onClick={e=>e.stopPropagation()}>{getSocialIcon(platform)}</span>;
+                  return (
+                    <div key={platform} className="relative group/btn flex items-center justify-center">
+                      <span className="opacity-30 grayscale cursor-not-allowed" onClick={e=>e.stopPropagation()}>
+                        {getSocialIcon(platform)}
+                      </span>
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max bg-white text-slate-600 text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-sm border border-slate-100 opacity-0 group-hover/btn:opacity-100 transition-opacity pointer-events-none z-50">
+                        {platform} (未提供連結)
+                      </div>
+                    </div>
+                  );
                 }
                 
                 if (urls.length === 1) {
                   return (
-                    <a key={platform} href={urls[0]} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} className="hover:scale-110 hover:-translate-y-0.5 transition-all" title={platform}>
-                      {getSocialIcon(platform)}
-                    </a>
+                    <div key={platform} className="relative group/btn flex items-center justify-center" onClick={e=>e.stopPropagation()}>
+                      <a href={urls[0]} target="_blank" rel="noreferrer" className="hover:scale-110 hover:-translate-y-0.5 transition-all">
+                        {getSocialIcon(platform)}
+                      </a>
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max bg-white text-slate-600 text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-sm border border-slate-100 opacity-0 group-hover/btn:opacity-100 transition-opacity pointer-events-none z-50">
+                        {platform}
+                      </div>
+                    </div>
                   );
                 }
 
@@ -1099,8 +1135,30 @@
                 );
               })}
               
-              {data?.reference_link && <a href={data.reference_link} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} className="hover:scale-110 hover:-translate-y-0.5 transition-all text-amber-500"><Icon name="bookmark" size={18} stroke="#f59e0b" strokeWidth={2.5} /></a>}
-              {data?.anytag_url && <a href={data.anytag_url} target="_blank" rel="noreferrer" onClick={e=>e.stopPropagation()} className="text-slate-400 hover:text-brand hover:scale-110 transition-all"><Icon name="external" size={12} /></a>}
+              {/* 參考貼文 */}
+              {data?.reference_link && (
+                <div className="relative group/btn flex items-center justify-center" onClick={e=>e.stopPropagation()}>
+                  <a href={data.reference_link} target="_blank" rel="noreferrer" className="hover:scale-110 hover:-translate-y-0.5 transition-all text-amber-500">
+                    <Icon name="bookmark" size={18} stroke="#f59e0b" strokeWidth={2.5} />
+                  </a>
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max bg-white text-slate-600 text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-sm border border-slate-100 opacity-0 group-hover/btn:opacity-100 transition-opacity pointer-events-none z-50">
+                    參考貼文
+                  </div>
+                </div>
+              )}
+              
+              {/* AnyTag 連結 */}
+              {data?.anytag_url && (
+                <div className="relative group/btn flex items-center justify-center" onClick={e=>e.stopPropagation()}>
+                  <a href={data.anytag_url} target="_blank" rel="noreferrer" className="text-slate-400 hover:text-brand hover:scale-110 transition-all">
+                    <Icon name="external" size={12} />
+                  </a>
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max bg-white text-slate-600 text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-sm border border-slate-100 opacity-0 group-hover/btn:opacity-100 transition-opacity pointer-events-none z-50">
+                    AnyTag Profile
+                  </div>
+                </div>
+              )}
+
             </div>
           </div>
         </div>
@@ -1111,12 +1169,21 @@
     // 📋 DETAIL MODAL
     // ============================================================
     function DetailModal({ data, userRole, onClose, onEdit, onDelete }) {
+      const [copiedEmail, setCopiedEmail] = useState(false); // ✅ 新增：詳細卡片信箱複製狀態
       if (!data) return null;
       const tier = getTierInfo(data.followers);
       const quoteOutdated = isOlderThan6Months(data.quote_updated_date, 'dot');
       const profileOutdated = isOlderThan6Months(data.last_updated_date, 'iso');
       const lastUpdatedText = formatDate(data.last_updated_date);
       const displaySocialsObj = mergeDisplaySocials(data);
+
+      // ✅ 新增：詳細卡片信箱複製邏輯
+      const handleCopyEmail = (e) => {
+        e.preventDefault();
+        navigator.clipboard.writeText(data.email);
+        setCopiedEmail(true);
+        setTimeout(() => setCopiedEmail(false), 2000);
+      };
 
       return (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in">
@@ -1174,9 +1241,15 @@
                   <div>
                     <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.12em] mb-3">Contact & Links</h3>
                     <div className="space-y-2.5">
-                      {data.email && <a href={`mailto:${data.email}`} className="flex items-center gap-3 text-sm font-bold text-slate-700 bg-white p-3.5 rounded-2xl border-2 border-slate-200 hover:border-brand/30 hover:shadow-md hover:-translate-y-0.5 transition-all"><span className="w-5 h-5 flex items-center justify-center text-slate-400"><Icon name="mail" size={20} /></span>{data.email}</a>}
+                      {/* ✅ 詳細資料卡的信箱改為點擊複製 */}
+                      {data.email && (
+                        <button type="button" onClick={handleCopyEmail} className="w-full flex items-center gap-3 text-sm font-bold text-slate-700 bg-white p-3.5 rounded-2xl border-2 border-slate-200 hover:border-brand/30 hover:shadow-md hover:-translate-y-0.5 transition-all text-left">
+                          <span className="w-5 h-5 flex items-center justify-center text-slate-400"><Icon name="mail" size={20} /></span>
+                          <span className="flex-1 truncate">{data.email}</span>
+                          {copiedEmail && <span className="text-[11px] font-black text-emerald-500 bg-emerald-50 px-2 py-1 rounded-lg shrink-0">✅ 已複製</span>}
+                        </button>
+                      )}
                       
-                      {/* ✅ 支援 IG 及其他所有平台的多重網址獨立展開渲染 */}
                       {Object.entries(displaySocialsObj).map(([platform, urls]) => {
                         if (!urls || urls.length === 0 || (urls.length === 1 && !urls[0])) {
                           return (
@@ -1221,20 +1294,18 @@
       const collabRef = useRef(null);
       const socialsRef = useRef(null);
 
-      // ✅ 將 Instagram 加入統一下拉選單
       const socialOptions = ['Instagram','YouTube','Facebook','TikTok','Threads','小紅書','X (Twitter)','Discord','Twitch','Podcast','其他 (Blog/Website/Link in bio)'];
 
       const [formData, setFormData] = useState({
         id:null, instagram_url:'', user_id:'', name:'', email:'', followers:'', category:'',
         collaboration_tags:'', promo_platforms:'', avatar_url:'', commission_rate:'', base_fee:'',
         youtube_url:'', facebook_url:'', anytag_url:'', extra_platforms:'',
-        other_social_platforms: JSON.stringify({"Instagram": [""]}), // ✅ 新增時預設給一個 IG 欄位
+        other_social_platforms: JSON.stringify({"Instagram": [""]}), 
         reference_link:'', quote_updated_date:'', notes:''
       });
 
       useEffect(() => {
         if (initialData) {
-          // ✅ 使用大一統邏輯，將舊版資料直接轉換為陣列格式
           const safeParsed = mergeDisplaySocials(initialData);
           setFormData({ ...initialData, other_social_platforms: JSON.stringify(safeParsed), user_id: initialData.user_id||'' });
         }
@@ -1242,7 +1313,6 @@
 
       const otherSocialsObj = useMemo(() => parseOtherSocials(formData.other_social_platforms), [formData.other_social_platforms]);
 
-      // ✅ 自動提取 Instagram ID 邏輯更新 (適應陣列架構)
       useEffect(() => {
         const igUrl = otherSocialsObj['Instagram']?.[0] || '';
         const hasOther = Object.keys(otherSocialsObj).length > 0;
@@ -1313,7 +1383,6 @@
         if (!formData.user_id) missingFields.push('帳號 ID');
         if (!formData.collaboration_tags?.trim()) missingFields.push('合作模式 Tags');
         
-        // 驗證是否有填寫社群網址
         const allInputUrls = Object.values(otherSocialsObj).flat().filter(u => u && u.trim() !== '');
         if (allInputUrls.length === 0) {
           missingFields.push('社群平台網址 (請至少填寫一個平台)');
@@ -1353,7 +1422,6 @@
           const payload = {...formData};
           payload.followers = parseInt(String(payload.followers).replace(/,/g,''),10) || 0;
           
-          // ✅ 為了向下相容資料庫既有的字串欄位，儲存時把第一組網址放回去
           payload.instagram_url = (otherSocialsObj['Instagram'] && otherSocialsObj['Instagram'][0]) || '';
           payload.youtube_url = (otherSocialsObj['YouTube'] && otherSocialsObj['YouTube'][0]) || '';
           payload.facebook_url = (otherSocialsObj['Facebook'] && otherSocialsObj['Facebook'][0]) || '';
@@ -1421,7 +1489,6 @@
                   </div>
                   
                   <div id="tour-form-social" className="space-y-5">
-                    {/* ✅ 完美整合的「大一統」社群平台 UI */}
                     <FormField label="社群平台網址" hint="💡 支援多平台、多重網址，點擊右方箭頭新增平台" required colSpan2>
                       <div ref={socialsRef} className="relative mb-3">
                         <div onClick={() => setShowSocialsDD(!showSocialsDD)} className={`${inputCls} cursor-pointer flex justify-between items-center ${showSocialsDD ? 'ring-2 ring-brand/30 border-brand' : ''}`}>
