@@ -1322,29 +1322,42 @@
       }, [initialData]);
 
       const otherSocialsObj = useMemo(() => parseOtherSocials(formData.other_social_platforms), [formData.other_social_platforms]);
-      // ✅ 新增：即時查重邏輯 (方案 A)
+      // ✅ 升級版：即時查重邏輯 (加入網址監測)
       const liveConflict = useMemo(() => {
-        if (isEditing) return null; // 編輯模式不觸發即時警告
+        if (isEditing) return null;
         const name = (formData.name || '').trim().toLowerCase();
         const email = (formData.email || '').trim().toLowerCase();
         const userId = (formData.user_id || '').trim().toLowerCase();
-        if (name.length < 2 && !email && (userId === 'n/a' || !userId)) return null;
+        
+        // 抓取目前表單中填寫的所有網址
+        const currentUrls = extractAllUrls({...formData, other_social_platforms: formData.other_social_platforms});
+
+        // 如果什麼都沒填，就不啟動雷達
+        if (name.length < 2 && !email && (userId === 'n/a' || !userId) && currentUrls.length === 0) return null;
 
         return existingData.find(d => {
-          // 檢查姓名 (關鍵字模糊比對)
+          // 1. 檢查網址 (最精準)
+          const dUrls = extractAllUrls(d);
+          const urlMatch = currentUrls.some(cu => dUrls.includes(cu));
+          if (urlMatch) return true;
+
+          // 2. 檢查 ID
+          const idMatch = userId && userId !== 'n/a' && d.user_id && userId === d.user_id.toLowerCase();
+          if (idMatch) return true;
+
+          // 3. 檢查 Email
+          const emailMatch = email && d.email && email === d.email.toLowerCase();
+          if (emailMatch) return true;
+
+          // 4. 檢查姓名 (智慧模糊比對)
           const dName = (d.name || '').toLowerCase();
           const nameKeywords = name.split(/[\s\.\-\_]+/).filter(w => w.length >= 2);
           const nameSimilar = nameKeywords.length > 0 && nameKeywords.some(kw => dName.includes(kw));
           
-          // 檢查 Email (完全比對)
-          const emailMatch = email && d.email && email === d.email.toLowerCase();
-          
-          // 檢查 ID (完全比對)
-          const idMatch = userId && userId !== 'n/a' && d.user_id && userId === d.user_id.toLowerCase();
-
-          return nameSimilar || emailMatch || idMatch;
+          return nameSimilar;
         });
-      }, [formData.name, formData.email, formData.user_id, existingData]);
+        // 💡 這裡多了 formData.other_social_platforms，讓雷達會盯著網址看
+      }, [formData.name, formData.email, formData.user_id, formData.other_social_platforms, existingData]);
 
       useEffect(() => {
         const igUrl = otherSocialsObj['Instagram']?.[0] || '';
@@ -1635,6 +1648,11 @@
                               {Array.isArray(urls) && urls.map((url, idx) => (
                                 <div key={idx} className="flex items-center gap-2 animate-fade-in">
                                   <input type="text" placeholder={`https://... (${opt} 網址 ${idx + 1})`} value={url} onChange={e => handleSocialUrl(opt, idx, e.target.value)} className={inputCls} />
+                                  {liveConflict && url && extractAllUrls(liveConflict).includes(normalizeUrl(url)) && (
+  <div className="text-[10px] text-red-600 font-bold mt-1 flex items-center gap-1 animate-fade-in">
+    <Icon name="triangle" size={10} /> 此網址已由「{liveConflict.name}」佔用
+  </div>
+)}
                                   {urls.length > 1 && (
                                     <button type="button" onClick={() => removeSocialUrl(opt, idx)} className="shrink-0 p-3 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors border border-transparent hover:border-red-100" title="移除此網址">
                                       <Icon name="trash" size={16} />
