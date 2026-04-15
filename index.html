@@ -959,7 +959,8 @@
             </div>
           </main>
 
-          {isFormOpen && <FormModal existingData={data} categories={categories} initialData={editingData} onClose={closeForm} onSave={handleSaveCreator} onViewDuplicate={(creator) => { closeForm(); setSelectedCreator(creator); }} />}
+          {/* 修改點：移除 closeForm()，讓 DetailModal 疊在 FormModal 上方 */}
+{isFormOpen && <FormModal existingData={data} categories={categories} initialData={editingData} onClose={closeForm} onSave={handleSaveCreator} onViewDuplicate={(creator) => { setSelectedCreator(creator); }} />}
           {selectedCreator && <DetailModal data={selectedCreator} userRole={userRole} onClose={() => setSelectedCreator(null)} onEdit={() => openEditForm(selectedCreator)} onDelete={() => { setSelectedCreator(null); setCreatorToDelete(selectedCreator); }} />}
           {creatorToDelete && <ConfirmDeleteModal data={creatorToDelete} onClose={() => setCreatorToDelete(null)} onConfirm={handleDeleteCreator} />}
         </div>
@@ -1186,7 +1187,8 @@
       };
 
       return (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in">
+        {/* 修改點：z-50 改為 z-[60]，確保蓋在表單 (z-50) 上面 */}
+<div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-[60] flex items-center justify-center p-4 animate-fade-in">
           <div className="bg-white/95 backdrop-blur-2xl border border-white rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-[0_24px_80px_rgba(0,0,0,0.12)] relative no-scrollbar animate-zoom-in">
             <div className="sidebar-top-accent rounded-t-3xl" />
             <div className="sticky top-0 p-4 flex justify-end gap-2 bg-gradient-to-b from-white/95 to-transparent z-10 pointer-events-none">
@@ -1312,6 +1314,29 @@
       }, [initialData]);
 
       const otherSocialsObj = useMemo(() => parseOtherSocials(formData.other_social_platforms), [formData.other_social_platforms]);
+      // ✅ 新增：即時查重邏輯 (方案 A)
+      const liveConflict = useMemo(() => {
+        if (isEditing) return null; // 編輯模式不觸發即時警告
+        const name = (formData.name || '').trim().toLowerCase();
+        const email = (formData.email || '').trim().toLowerCase();
+        const userId = (formData.user_id || '').trim().toLowerCase();
+        if (name.length < 2 && !email && (userId === 'n/a' || !userId)) return null;
+
+        return existingData.find(d => {
+          // 檢查姓名 (關鍵字模糊比對)
+          const dName = (d.name || '').toLowerCase();
+          const nameKeywords = name.split(/[\s\.\-\_]+/).filter(w => w.length >= 2);
+          const nameSimilar = nameKeywords.length > 0 && nameKeywords.some(kw => dName.includes(kw));
+          
+          // 檢查 Email (完全比對)
+          const emailMatch = email && d.email && email === d.email.toLowerCase();
+          
+          // 檢查 ID (完全比對)
+          const idMatch = userId && userId !== 'n/a' && d.user_id && userId === d.user_id.toLowerCase();
+
+          return nameSimilar || emailMatch || idMatch;
+        });
+      }, [formData.name, formData.email, formData.user_id, existingData]);
 
       useEffect(() => {
         const igUrl = otherSocialsObj['Instagram']?.[0] || '';
@@ -1634,12 +1659,28 @@
                     />
                   </FormField>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <FormField label="網紅姓名" required><input type="text" value={formData.name} onChange={e => setFormData({...formData, name:e.target.value})} className={inputCls} /></FormField>
+                    <FormField label="網紅姓名" required>
+  <input type="text" value={formData.name} onChange={e => setFormData({...formData, name:e.target.value})} className={inputCls} />
+  {/* 💡 新增：即時提示 */}
+  {liveConflict && formData.name.length >= 2 && (liveConflict.name.toLowerCase().includes((formData.name||'').toLowerCase()) || (formData.name||'').toLowerCase().includes(liveConflict.name.toLowerCase())) && (
+    <div className="text-[10px] text-amber-600 font-bold mt-1 flex items-center gap-1 animate-fade-in">
+      <Icon name="info" size={10} /> 系統已有相似名稱：{liveConflict.name}
+    </div>
+  )}
+</FormField>
                     <div id="tour-form-followers" className="w-full">
                       <FormField label="粉絲數" hint="💡 填寫最高平台數字" required><input type="text" placeholder="例：150000" value={formData.followers} onChange={e => setFormData({...formData, followers:e.target.value})} className={inputCls} /></FormField>
                     </div>
                   </div>
-                  <FormField label="Email 聯絡信箱" colSpan2><input type="text" placeholder="hello@example.com" value={formData.email||''} onChange={e => setFormData({...formData, email:e.target.value})} className={inputCls} /></FormField>
+                  <FormField label="Email 聯絡信箱" colSpan2>
+  <input type="text" placeholder="hello@example.com" value={formData.email||''} onChange={e => setFormData({...formData, email:e.target.value})} className={inputCls} />
+  {/* 💡 新增：即時提示 */}
+  {liveConflict && formData.email && liveConflict.email?.toLowerCase() === formData.email.toLowerCase() && (
+    <div className="text-[10px] text-amber-600 font-bold mt-1 flex items-center gap-1 animate-fade-in">
+      <Icon name="info" size={10} /> 此 Email 已由「{liveConflict.name}」使用
+    </div>
+  )}
+</FormField>
                   <FormField label="內容分類 (複選)" colSpan2>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-slate-50 p-4 rounded-2xl border border-slate-100">
                       {categories.map(cat => {
@@ -1682,7 +1723,15 @@
                     </div>
                   </FormField>
 
-                  <FormField label="帳號 ID" hint="💡 可手動編輯" required colSpan2><input type="text" placeholder="有填IG會自動帶入，無IG則自動填N/A" value={formData.user_id} onChange={e => setFormData({...formData, user_id:e.target.value})} className={inputCls} /></FormField>
+                  <FormField label="帳號 ID" hint="💡 可手動編輯" required colSpan2>
+  <input type="text" placeholder="有填IG會自動帶入，無IG則自動填N/A" value={formData.user_id} onChange={e => setFormData({...formData, user_id:e.target.value})} className={inputCls} />
+  {/* 💡 新增：即時提示 */}
+  {liveConflict && formData.user_id && formData.user_id !== 'N/A' && liveConflict.user_id?.toLowerCase() === formData.user_id.toLowerCase() && (
+    <div className="text-[10px] text-amber-600 font-bold mt-1 flex items-center gap-1 animate-fade-in">
+      <Icon name="info" size={10} /> 此 ID 已由「{liveConflict.name}」佔用
+    </div>
+  )}
+</FormField>
                 </div>
 
                 <hr className="border-slate-100" />
