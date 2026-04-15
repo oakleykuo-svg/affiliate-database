@@ -1419,7 +1419,8 @@
         setFormData({...formData, other_social_platforms: JSON.stringify(obj)});
       };
 
-      const handleSubmit = async (e) => {
+      // 💡 增加 isBypass 參數，預設為 false
+const handleSubmit = async (e, isBypass = false) => {
         if (e) e.preventDefault();
         setDuplicateConflict(null);
         
@@ -1498,8 +1499,8 @@
           return;
         }
 
-        // 如果觸發橘色警告，且使用者還沒按過「確認不同人」，就先擋下
-        if (softMatch && !formData.ignoreSoftWarning) {
+        // 💡 如果 isBypass 是 true，就不會進入這個 if 區塊，直接往存檔跑
+if (softMatch && !formData.ignoreSoftWarning && !isBypass) {
           setDuplicateConflict({ ...softMatch, type: 'soft' }); // 觸發橘色警告
           document.getElementById('form-scroll-area')?.scrollTo({top: 0, behavior: 'smooth'});
           return;
@@ -1596,10 +1597,10 @@
                           <button 
                             type="button" 
                             onClick={(e) => { 
-                              e.preventDefault();
-                              setFormData({...formData, ignoreSoftWarning: true}); 
-                              setTimeout(() => handleSubmit(), 50); 
-                            }} 
+  e.preventDefault();
+  // 💡 直接呼叫 handleSubmit 並送入通行證 (true)
+  handleSubmit(e, true); 
+}} 
                             className="flex-1 md:flex-none bg-amber-600 text-white px-4 py-2.5 rounded-xl text-[11px] font-black hover:bg-amber-700 transition-all shadow-md active:scale-95"
                           >
                             不同人，繼續存檔
