@@ -261,18 +261,25 @@
     };
 
     const parseOtherSocials = (jsonStr) => {
-      if (!jsonStr || typeof jsonStr !== 'string') return {};
+      // 🛡️ 第一層防護：排除所有「非字串」或「無效字串內容」
+      if (!jsonStr || typeof jsonStr !== 'string' || jsonStr === 'undefined' || jsonStr === 'null' || jsonStr.trim() === '') {
+        return {};
+      }
+
       try {
         let parsed = {};
-        if (jsonStr.includes('{')) {
+        // 🛡️ 第二層防護：判斷是否為 JSON 格式 (以 { 開頭)
+        if (jsonStr.trim().startsWith('{')) {
           const rawParsed = JSON.parse(jsonStr);
           if (rawParsed && typeof rawParsed === 'object') parsed = rawParsed;
         } else {
+          // 如果不是 JSON，視為舊版的標籤格式（逗號分隔）
           const tags = jsonStr.split(',').map(s => s.trim()).filter(Boolean);
           tags.forEach(t => parsed[t] = ['']);
           return parsed;
         }
         
+        // 🛡️ 第三層防護：標準化格式，確保所有欄位值都是陣列
         const normalized = {};
         Object.entries(parsed).forEach(([key, val]) => {
           if (Array.isArray(val)) {
@@ -282,7 +289,10 @@
           }
         });
         return normalized;
-      } catch { return {}; }
+      } catch (e) { 
+        console.error("解析社群資料 JSON 失敗，原始資料為:", jsonStr);
+        return {}; 
+      }
     };
 
     // ✅ 升級版 mergeDisplaySocials：完美處理 IG、YT、FB 從舊獨立欄位轉入 JSON 系統
@@ -959,8 +969,7 @@
             </div>
           </main>
 
-          {/* 修改點：移除 closeForm()，讓 DetailModal 疊在 FormModal 上方 */}
-{isFormOpen && <FormModal existingData={data} categories={categories} initialData={editingData} onClose={closeForm} onSave={handleSaveCreator} onViewDuplicate={(creator) => { setSelectedCreator(creator); }} />}
+          {isFormOpen && <FormModal existingData={data} categories={categories} initialData={editingData} onClose={closeForm} onSave={handleSaveCreator} onViewDuplicate={(creator) => { setSelectedCreator(creator); }} />}
           {selectedCreator && <DetailModal data={selectedCreator} userRole={userRole} onClose={() => setSelectedCreator(null)} onEdit={() => openEditForm(selectedCreator)} onDelete={() => { setSelectedCreator(null); setCreatorToDelete(selectedCreator); }} />}
           {creatorToDelete && <ConfirmDeleteModal data={creatorToDelete} onClose={() => setCreatorToDelete(null)} onConfirm={handleDeleteCreator} />}
         </div>
@@ -1187,8 +1196,7 @@
       };
 
       return (
-        {/* 修改點：z-50 改為 z-[60]，確保蓋在表單 (z-50) 上面 */}
-<div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-[60] flex items-center justify-center p-4 animate-fade-in">
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-[60] flex items-center justify-center p-4 animate-fade-in">
           <div className="bg-white/95 backdrop-blur-2xl border border-white rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-[0_24px_80px_rgba(0,0,0,0.12)] relative no-scrollbar animate-zoom-in">
             <div className="sidebar-top-accent rounded-t-3xl" />
             <div className="sticky top-0 p-4 flex justify-end gap-2 bg-gradient-to-b from-white/95 to-transparent z-10 pointer-events-none">
