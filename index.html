@@ -1511,8 +1511,9 @@ if (softMatch && !formData.ignoreSoftWarning && !isBypass) {
         try {
           const payload = {...formData};
           
-          // 💡 核心修復：刪除暫時性的 UI 旗標，不要把它傳給 Supabase 資料庫
+          // 💡 核心修復：把所有不屬於資料庫的 UI 旗標通通刪除
           delete payload.ignoreSoftWarning;
+          delete payload.type; // <--- 新增這一行！
 
           payload.followers = parseInt(String(payload.followers).replace(/,/g,''),10) || 0;
           
