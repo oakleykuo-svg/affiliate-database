@@ -1474,13 +1474,14 @@ const handleSubmit = async (e, isBypass = false) => {
             // A. Email 完全命中
             const emailMatch = inputEmail && dEmail && inputEmail === dEmail;
 
-            // B. 姓名智慧模糊比對 (拆解關鍵字並過濾噪音)
-            // 邏輯：中文至少 2 字，英文至少 3 字才算有效關鍵字
-            const inputKeywords = inputName.split(/[\s\.\-\_]+/).filter(w => {
-                const isChinese = /[\u4e00-\u9fa5]/.test(w);
-                return isChinese ? w.length >= 2 : w.length >= 3;
-            });
-            const nameSimilar = inputKeywords.length > 0 && inputKeywords.some(kw => dName.includes(kw));
+            // B. 姓名智慧比對 (全字串互相包含法，防止字母拼字誤判)
+            let nameSimilar = false;
+            if (inputName.length >= 2 && dName) {
+              // 只要你打的整串字包含在舊資料裡，或舊資料包含你打的整串字，才算重複
+              if (dName.includes(inputName) || inputName.includes(dName)) {
+                nameSimilar = true;
+              }
+            }
 
             if (emailMatch || nameSimilar) {
               softMatch = d;
