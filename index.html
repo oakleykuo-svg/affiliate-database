@@ -1377,6 +1377,7 @@
         if (e) e.preventDefault();
         setDuplicateConflict(null);
         
+        // 1. 【基本驗證】檢查必填欄位
         const missingFields = [];
         if (!formData.name) missingFields.push('網紅姓名');
         if (!formData.followers) missingFields.push('粉絲數');
@@ -1393,40 +1394,85 @@
           return;
         }
 
+        // 2. 【格式驗證】檢查網址開頭
         const invalidUrls = allInputUrls.filter(u => !/^https?:\/\//i.test(u.trim()));
         if (invalidUrls.length > 0) {
-          alert('⚠️ 網址格式錯誤：\n\n主力社群平台網址必須包含 "https://" 完整開頭，請檢查後再試一次！');
+          alert('⚠️ 網址格式錯誤：\n\n主力社群平台網址必須包含 "https://" 完整開頭！');
           return;
         }
 
+        // 3. 【智慧防撞雷達】多維度檢查重複
         const currentUrls = extractAllUrls({...formData, other_social_platforms: JSON.stringify(otherSocialsObj)});
-        if (currentUrls.length > 0) {
-          let foundDuplicate = null;
-          const isDuplicate = existingData.some(d => {
-            if (String(d.id) === String(formData.id)) return false; 
-            const dUrls = extractAllUrls(d);
-            const match = currentUrls.some(cu => dUrls.includes(cu));
-            if (match) foundDuplicate = d;
-            return match;
-          });
+        const inputName = (formData.name || '').trim().toLowerCase();
+        const inputEmail = (formData.email || '').trim().toLowerCase();
 
-          if (isDuplicate) {
-            setDuplicateConflict(foundDuplicate);
-            document.getElementById('form-scroll-area')?.scrollTo({top: 0, behavior: 'smooth'});
-            return;
+        let hardMatch = null;   // 🔴 絕對重複 (網址/ID)
+        let softMatch = null;   // 🟠 疑似重複 (Email/姓名智慧模糊比對)
+
+        existingData.forEach(d => {
+          if (String(d.id) === String(formData.id)) return; // 編輯模式跳過自己
+
+          // --- 🔴 第一層：絕對比對 (網址或帳號 ID) ---
+          const dUrls = extractAllUrls(d);
+          const hasUrlMatch = currentUrls.some(cu => dUrls.includes(cu));
+          // 排除 N/A，針對有效的 ID 進行比對
+          const hasIdMatch = formData.user_id !== 'N/A' && d.user_id && d.user_id.toLowerCase() === formData.user_id.toLowerCase();
+          
+          if (hasUrlMatch || hasIdMatch) {
+            hardMatch = d;
+            return; // 命中硬阻擋就不用往下跑了
           }
+
+          // --- 🟠 第二層：智慧模糊比對 (Email 或 姓名關鍵字) ---
+          if (!hardMatch) {
+            const dName = (d.name || '').toLowerCase();
+            const dEmail = (d.email || '').toLowerCase();
+
+            // A. Email 完全命中
+            const emailMatch = inputEmail && dEmail && inputEmail === dEmail;
+
+            // B. 姓名智慧模糊比對 (拆解關鍵字並過濾噪音)
+            // 邏輯：中文至少 2 字，英文至少 3 字才算有效關鍵字
+            const inputKeywords = inputName.split(/[\s\.\-\_]+/).filter(w => {
+                const isChinese = /[\u4e00-\u9fa5]/.test(w);
+                return isChinese ? w.length >= 2 : w.length >= 3;
+            });
+            const nameSimilar = inputKeywords.length > 0 && inputKeywords.some(kw => dName.includes(kw));
+
+            if (emailMatch || nameSimilar) {
+              softMatch = d;
+            }
+          }
+        });
+
+        // 判斷雷達結果
+        if (hardMatch) {
+          setDuplicateConflict({ ...hardMatch, type: 'hard' }); // 觸發紅色警告
+          document.getElementById('form-scroll-area')?.scrollTo({top: 0, behavior: 'smooth'});
+          return;
         }
 
+        // 如果觸發橘色警告，且使用者還沒按過「確認不同人」，就先擋下
+        if (softMatch && !formData.ignoreSoftWarning) {
+          setDuplicateConflict({ ...softMatch, type: 'soft' }); // 觸發橘色警告
+          document.getElementById('form-scroll-area')?.scrollTo({top: 0, behavior: 'smooth'});
+          return;
+        }
+
+        // 4. 【執行儲存】通過所有雷達後，正式存檔
         setIsSaving(true);
         try {
           const payload = {...formData};
           payload.followers = parseInt(String(payload.followers).replace(/,/g,''),10) || 0;
           
+          // 回填至舊有的單行欄位以維持相容性
           payload.instagram_url = (otherSocialsObj['Instagram'] && otherSocialsObj['Instagram'][0]) || '';
           payload.youtube_url = (otherSocialsObj['YouTube'] && otherSocialsObj['YouTube'][0]) || '';
           payload.facebook_url = (otherSocialsObj['Facebook'] && otherSocialsObj['Facebook'][0]) || '';
           
           await onSave(payload, isEditing, initialData?.id);
+          // 儲存成功後重設警告旗標
+          setFormData(prev => ({...prev, ignoreSoftWarning: false}));
         } catch (err) {
           console.error("Form Submit Failed:", err);
         } finally { setIsSaving(false); }
@@ -1467,19 +1513,34 @@
               <div id="form-scroll-area" className="p-8 overflow-y-auto flex-1 no-scrollbar space-y-8">
                 
                 {duplicateConflict && (
-                  <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-slide-down">
-                    <div className="flex items-start gap-3">
-                      <div className="mt-0.5 text-red-500"><Icon name="info" size={20} strokeWidth={2.5} /></div>
-                      <div>
-                        <h4 className="font-black text-red-700 text-sm mb-1">發現重複的社群網址！</h4>
-                        <p className="text-xs text-red-600 font-medium leading-relaxed">
-                          您填寫的網址已經存在於 <strong className="font-black">{duplicateConflict.name}</strong> (@{duplicateConflict.user_id || '無ID'}) 的檔案中。
-                        </p>
+                  <div className={`${duplicateConflict.type === 'hard' ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'} border-2 rounded-2xl p-5 animate-slide-down`}>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                      <div className="flex items-start gap-3">
+                        <div className={duplicateConflict.type === 'hard' ? 'text-red-500' : 'text-amber-500'}>
+                          <Icon name={duplicateConflict.type === 'hard' ? 'triangle' : 'info'} size={20} strokeWidth={2.5} />
+                        </div>
+                        <div>
+                          <h4 className={`font-black text-sm mb-1 ${duplicateConflict.type === 'hard' ? 'text-red-700' : 'text-amber-700'}`}>
+                            {duplicateConflict.type === 'hard' ? '🚨 發現重複建檔！' : '💡 發現極為相似的網紅'}
+                          </h4>
+                          <p className={`text-xs font-medium leading-relaxed ${duplicateConflict.type === 'hard' ? 'text-red-600' : 'text-amber-600'}`}>
+                            {duplicateConflict.type === 'hard' 
+                              ? `網址或 ID 與現有檔案「${duplicateConflict.name}」完全重複。請勿重複建檔！`
+                              : `系統發現「${duplicateConflict.name}」的姓名或 Email 與您填寫的內容高度相似。請問是同一人嗎？`}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 w-full sm:w-auto">
+                        <button type="button" onClick={() => onViewDuplicate(duplicateConflict)} className="flex-1 sm:flex-none bg-white border border-slate-200 px-3 py-2 rounded-xl text-[11px] font-bold hover:bg-slate-50 transition-colors flex items-center justify-center gap-1 text-slate-700">
+                          <Icon name="external" size={12} /> 查看現有檔案
+                        </button>
+                        {duplicateConflict.type === 'soft' && (
+                          <button type="button" onClick={() => { setFormData({...formData, ignoreSoftWarning: true}); setTimeout(() => handleSubmit(), 100); }} className="flex-1 sm:flex-none bg-amber-600 text-white px-3 py-2 rounded-xl text-[11px] font-black hover:bg-amber-700 transition-colors shadow-sm">
+                            不同人，繼續存檔
+                          </button>
+                        )}
                       </div>
                     </div>
-                    <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onViewDuplicate(duplicateConflict); }} className="shrink-0 bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl text-xs font-black shadow-sm transition-colors flex items-center gap-1.5 w-full sm:w-auto justify-center">
-                      <Icon name="external" size={14} /> 查看該網紅檔案
-                    </button>
                   </div>
                 )}
 
