@@ -1539,7 +1539,23 @@
                     </FormField>
                   </div>
                   
-                  <FormField label="額外曝光管道" hint="💡 不同管道網址請直接換行貼上" hintStyle="gray" colSpan2><textarea rows="3" placeholder="💡 例：Line社群、FB私密社團、7-11賣貨便等... 請直接換行貼上不同管道的網址或說明" value={formData.extra_platforms||''} onChange={e => setFormData({...formData, extra_platforms:e.target.value})} className={`${inputCls} resize-none leading-relaxed border-dashed`} /></FormField>
+                  <FormField label="額外曝光管道" hint="💡 不同管道網址請直接換行貼上" hintStyle="gray" colSpan2>
+                    <textarea 
+                      rows="3" 
+                      placeholder="💡 例：Line社群、FB私密社團、7-11賣貨便等... 請直接換行貼上不同管道的網址或說明" 
+                      value={formData.extra_platforms||''} 
+                      onChange={e => {
+                        const newVal = e.target.value;
+                        // 💡 智慧防呆：偵測到 line.me 就自動勾選 Line群
+                        let updatedPlats = formData.promo_platforms ? formData.promo_platforms.split(',').map(s=>s.trim()).filter(Boolean) : [];
+                        if (newVal.toLowerCase().includes('line.me') && !updatedPlats.includes('Line群')) {
+                          updatedPlats.push('Line群');
+                        }
+                        setFormData({...formData, extra_platforms: newVal, promo_platforms: updatedPlats.join(', ')});
+                      }} 
+                      className={`${inputCls} resize-none leading-relaxed border-dashed`} 
+                    />
+                  </FormField>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <FormField label="網紅姓名" required><input type="text" value={formData.name} onChange={e => setFormData({...formData, name:e.target.value})} className={inputCls} /></FormField>
                     <div id="tour-form-followers" className="w-full">
