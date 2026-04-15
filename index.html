@@ -1509,6 +1509,10 @@
         setIsSaving(true);
         try {
           const payload = {...formData};
+          
+          // 💡 核心修復：刪除暫時性的 UI 旗標，不要把它傳給 Supabase 資料庫
+          delete payload.ignoreSoftWarning;
+
           payload.followers = parseInt(String(payload.followers).replace(/,/g,''),10) || 0;
           
           // 回填至舊有的單行欄位以維持相容性
