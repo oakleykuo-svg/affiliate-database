@@ -1322,41 +1322,37 @@
       }, [initialData]);
 
       const otherSocialsObj = useMemo(() => parseOtherSocials(formData.other_social_platforms), [formData.other_social_platforms]);
-      // ✅ 升級版：即時查重邏輯 (加入網址監測)
+      // ✅ 升級版：即時查重邏輯 (精準防攔截版)
       const liveConflict = useMemo(() => {
         if (isEditing) return null;
         const name = (formData.name || '').trim().toLowerCase();
         const email = (formData.email || '').trim().toLowerCase();
         const userId = (formData.user_id || '').trim().toLowerCase();
         
-        // 抓取目前表單中填寫的所有網址
         const currentUrls = extractAllUrls({...formData, other_social_platforms: formData.other_social_platforms});
 
-        // 如果什麼都沒填，就不啟動雷達
         if (name.length < 2 && !email && (userId === 'n/a' || !userId) && currentUrls.length === 0) return null;
 
         return existingData.find(d => {
-          // 1. 檢查網址 (最精準)
+          // 1. 檢查網址
           const dUrls = extractAllUrls(d);
-          const urlMatch = currentUrls.some(cu => dUrls.includes(cu));
-          if (urlMatch) return true;
+          if (currentUrls.some(cu => dUrls.includes(cu))) return true;
 
           // 2. 檢查 ID
-          const idMatch = userId && userId !== 'n/a' && d.user_id && userId === d.user_id.toLowerCase();
-          if (idMatch) return true;
+          if (userId && userId !== 'n/a' && d.user_id && userId === d.user_id.toLowerCase()) return true;
 
           // 3. 檢查 Email
-          const emailMatch = email && d.email && email === d.email.toLowerCase();
-          if (emailMatch) return true;
+          if (email && d.email && email === d.email.toLowerCase()) return true;
 
-          // 4. 檢查姓名 (智慧模糊比對)
+          // 4. 檢查姓名 (💡 核心修復：改用「互相包含」的強比對，不拆關鍵字，徹底解決攔截問題)
           const dName = (d.name || '').toLowerCase();
-          const nameKeywords = name.split(/[\s\.\-\_]+/).filter(w => w.length >= 2);
-          const nameSimilar = nameKeywords.length > 0 && nameKeywords.some(kw => dName.includes(kw));
+          if (name.length >= 2 && dName) {
+            // 只要你打的字包含在資料庫裡，或資料庫包含你打的字，就抓出來
+            if (dName.includes(name) || name.includes(dName)) return true;
+          }
           
-          return nameSimilar;
+          return false;
         });
-        // 💡 這裡多了 formData.other_social_platforms，讓雷達會盯著網址看
       }, [formData.name, formData.email, formData.user_id, formData.other_social_platforms, existingData]);
 
       useEffect(() => {
