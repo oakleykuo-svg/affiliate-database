@@ -385,6 +385,7 @@
       const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
       const [data, setData] = useState([]);
+      const [totalCount, setTotalCount] = useState(0); // 用來儲存資料庫裡總共有幾筆符合條件的資料
       const [categories, setCategories] = useState([]);
       const [isLoading, setIsLoading] = useState(true);
 
@@ -467,7 +468,8 @@
         if (session && userRole && userRole !== 'unauthorized') {
           fetchData();
         }
-      }, [session, userRole, isCheckingAuth]);
+      // 💡 差異在這裡：中括號裡加了分頁與篩選條件，只要條件一變，就會觸發 fetchData 去雲端拿資料
+      }, [session, userRole, isCheckingAuth, currentPage, searchTerm, selectedCategories, advFilters, sortBy]);
 
       useEffect(() => { 
         setCurrentPage(1); 
@@ -483,91 +485,84 @@
       }, []);
 
       const safeData = Array.isArray(data) ? data : [];
-      const filteredData = useMemo(() => {
-        return safeData.filter(item => {
-          if (!item) return false;
-          
-          // 關鍵字搜尋
-          const s = searchTerm.trim().toLowerCase();
-          if (s) {
-            const terms = s.split(/\s+/);
-            const allUrls = extractAllUrls(item).join(' ');
-            const itemText = [
-              item.name, item.user_id, item.instagram_url, item.youtube_url, item.facebook_url,
-              item.category, item.collaboration_tags, item.notes, item.extra_platforms,
-              allUrls, item.other_social_platforms
-            ].join(' ').toLowerCase();
-            const matchSearch = terms.some(term => itemText.includes(term));
-            if (!matchSearch) return false;
-          }
-
-          // Category 複選邏輯 (OR 聯集)
-          if (selectedCategories.length > 0) {
-            const itemCats = parseTags(item.category);
-            const hasCatMatch = selectedCategories.some(c => itemCats.includes(c));
-            if (!hasCatMatch) return false;
-          }
-          
-          const f = parseInt(String(item.followers||'0').replace(/,/g,''),10) || 0;
-          if (advFilters.followers === 'nano' && f >= 10000) return false;
-          if (advFilters.followers === 'micro' && (f < 10000 || f >= 50000)) return false;
-          if (advFilters.followers === 'macro' && (f < 50000 || f >= 150000)) return false;
-          if (advFilters.followers === 'mega' && (f < 150000 || f >= 300000)) return false;
-          if (advFilters.followers === 'toptier' && f < 300000) return false;
-          
-          if (advFilters.promoPlats.length > 0) {
-            const itemPlats = parseTags(item.promo_platforms);
-            const hasPlatMatch = advFilters.promoPlats.some(p => itemPlats.includes(p));
-            if (!hasPlatMatch) return false;
-          }
-          
-          if (advFilters.tags.length > 0) {
-            const itemTags = parseTags(item.collaboration_tags);
-            const hasMatch = advFilters.tags.some(t => itemTags.includes(t));
-            if (!hasMatch) return false;
-          }
-          
-          if (advFilters.hasQuote) {
-            const hasBaseFee = item.base_fee && item.base_fee.trim() !== '' && item.base_fee.trim() !== '無' && item.base_fee.trim() !== '-';
-            const hasCommission = item.commission_rate && item.commission_rate.trim() !== '' && item.commission_rate.trim() !== '無' && item.commission_rate.trim() !== '-';
-            if (!hasBaseFee && !hasCommission) return false;
-          }
-
-          return true;
-        }).sort((a, b) => {
-          if (sortBy === 'newest') return (b.id || 0) - (a.id || 0);
-          if (sortBy === 'oldest') return (a.id || 0) - (b.id || 0);
-          const toNum = x => parseInt(String(x.followers||'0').replace(/,/g,''),10) || 0;
-          if (sortBy === 'followers_desc') return toNum(b) - toNum(a);
-          if (sortBy === 'followers_asc') return toNum(a) - toNum(b);
-          if (sortBy === 'quote_new') return (b.quote_updated_date||'').localeCompare(a.quote_updated_date||'');
-          return 0;
-        });
-      }, [safeData, searchTerm, selectedCategories, advFilters, sortBy]);
-
-      const displayedData = useMemo(() => filteredData.slice((currentPage-1)*ITEMS_PER_PAGE, currentPage*ITEMS_PER_PAGE), [filteredData, currentPage]);
-      const totalPages = Math.ceil(filteredData.length / ITEMS_PER_PAGE);
+      const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
       // ---------------------------------------------------------
       // 3. 一般函數 (Function) 
       // ---------------------------------------------------------
       const fetchData = async () => {
-        setIsLoading(true);
-        if (!isRealMode) {
-          // Mock
-        } else {
-          try {
-            const [{ data: inf, error }, { data: cats }] = await Promise.all([
-              supabase.from('influencers').select('*').limit(5000),
-              supabase.from('categories').select('*').order('id', { ascending: true })
-            ]);
-            if (error) console.error(error);
-            setData(Array.isArray(inf) ? inf : []);
-            setCategories(Array.isArray(cats) ? cats : []);
-          } catch (err) { console.error(err); }
-        }
-        setIsLoading(false);
-      };
+  setIsLoading(true);
+  try {
+    // 1. 基本查詢：抓取 influencers 並要求回傳總筆數
+    let query = supabase
+      .from('influencers')
+      .select('*', { count: 'exact' });
+
+    // 2. 處理關鍵字搜尋 (姓名 或 IG帳號)
+    if (searchTerm.trim()) {
+      const s = `%${searchTerm.trim()}%`;
+      query = query.or(`name.ilike.${s},user_id.ilike.${s}`);
+    }
+
+    // 3. 處理領域分類篩選 (Category)
+    if (selectedCategories.length > 0) {
+      const catFilters = selectedCategories.map(cat => `category.ilike.%${cat}%`).join(',');
+      query = query.or(catFilters);
+    }
+
+    // 4. 處理進階篩選：粉絲數
+    if (advFilters.followers !== 'all') {
+      if (advFilters.followers === 'nano') query = query.lt('followers', 10000);
+      if (advFilters.followers === 'micro') query = query.gte('followers', 10000).lt('followers', 50000);
+      if (advFilters.followers === 'macro') query = query.gte('followers', 50000).lt('followers', 150000);
+      if (advFilters.followers === 'mega') query = query.gte('followers', 150000).lt('followers', 300000);
+      if (advFilters.followers === 'toptier') query = query.gte('followers', 300000);
+    }
+
+    // 5. 處理進階篩選：開團平台 (只要有勾選的其中一個符合就顯示)
+    if (advFilters.promoPlats.length > 0) {
+      const platFilters = advFilters.promoPlats.map(plat => `promo_platforms.ilike.%${plat}%`).join(',');
+      query = query.or(platFilters);
+    }
+
+    // 6. 處理進階篩選：合作模式 Tags (只要有勾選的其中一個符合就顯示)
+    if (advFilters.tags.length > 0) {
+      const tagFilters = advFilters.tags.map(tag => `collaboration_tags.ilike.%${tag}%`).join(',');
+      query = query.or(tagFilters);
+    }
+
+    // 7. 處理進階篩選：僅顯示有報價 (保底費用 或 分潤比例 不是空的，且不是"無"和"-")
+    if (advFilters.hasQuote) {
+      // 在 Supabase 中，確保這兩個欄位不是空字串，且不是特定無效字眼
+      query = query.or(`base_fee.neq.,base_fee.neq.無,base_fee.neq.-,commission_rate.neq.,commission_rate.neq.無,commission_rate.neq.-`);
+    }
+
+    // 8. 處理排序
+    if (sortBy === 'newest') query = query.order('id', { ascending: false });
+    else if (sortBy === 'oldest') query = query.order('id', { ascending: true });
+    else if (sortBy === 'followers_desc') query = query.order('followers', { ascending: false });
+    else if (sortBy === 'followers_asc') query = query.order('followers', { ascending: true });
+
+    // 9. 處理分頁 (單點模式核心)
+    const from = (currentPage - 1) * ITEMS_PER_PAGE;
+    const to = from + ITEMS_PER_PAGE - 1;
+    query = query.range(from, to);
+
+    // 10. 執行請求
+    const { data: result, count, error } = await query;
+    const { data: cats } = await supabase.from('categories').select('*').order('id', { ascending: true });
+
+    if (error) throw error;
+
+    setData(result || []);
+    setTotalCount(count || 0);
+    setCategories(cats || []);
+  } catch (err) {
+    console.error("抓取失敗:", err);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
       const handleLogin = async () => {
         const { error } = await supabase.auth.signInWithOAuth({ provider: 'google' });
@@ -576,58 +571,52 @@
 
       const handleLogout = async () => { await supabase.auth.signOut(); };
 
+      // 📝 雲端同步版：儲存網紅資料 (新增/修改)
       const handleSaveCreator = async (newCreator, isEditMode, originalId) => {
         if (userRole === 'viewer') return alert('權限不足：您只能瀏覽資料。');
 
         const final = { ...newCreator, last_updated_date: new Date().toISOString() };
-        if (!isRealMode) {
-          if (isEditMode) setData(data.map(d => d.id === originalId ? { ...final, id: originalId } : d));
-          else { final.id = Math.max(...data.map(d => d.id || 0), 0) + 1; setData([final, ...data]); }
-          closeForm();
-        } else {
-          try {
-            if (isEditMode) {
-              if (!originalId) throw new Error('缺少 ID，無法更新。');
-              delete final.id;
-              const { data: updated, error } = await supabase.from('influencers').update(final).eq('id', originalId).select();
-              if (error) throw error;
-              if (updated && updated.length > 0) {
-                setData(data.map(d => d.id === originalId ? updated[0] : d));
-                closeForm();
-              } else throw new Error('更新失敗：可能無此權限或找不到資料');
-            } else {
-              delete final.id;
-              const { data: inserted, error } = await supabase.from('influencers').insert([final]).select();
-              if (error) throw error;
-              if (inserted && inserted.length > 0) {
-                setData([inserted[0], ...data]);
-                closeForm();
-              } else throw new Error('新增失敗：無回傳資料，可能被 RLS 權限阻擋');
-            }
-          } catch (err) {
-            console.error('Supabase DB Error:', err);
-            alert(`🚨 資料庫存取失敗！\n\n錯誤訊息：${err.message || JSON.stringify(err)}\n\n💡 請檢查 Supabase 欄位名稱或型態是否正確。`);
-            throw err; 
+        
+        try {
+          if (isEditMode) {
+            if (!originalId) throw new Error('缺少 ID，無法更新。');
+            delete final.id;
+            const { error } = await supabase.from('influencers').update(final).eq('id', originalId);
+            if (error) throw error;
+          } else {
+            delete final.id;
+            const { error } = await supabase.from('influencers').insert([final]);
+            if (error) throw error;
           }
+          
+          // ✅ 儲存成功後，直接關閉表單，並重新向雲端抓取最新資料（同步分頁與總數）
+          closeForm();
+          fetchData(); 
+
+        } catch (err) {
+          console.error('Supabase DB Error:', err);
+          alert(`🚨 資料庫存取失敗！\n\n錯誤訊息：${err.message || JSON.stringify(err)}`);
+          throw err; 
         }
       };
 
+      // 📝 雲端同步版：刪除網紅資料
       const handleDeleteCreator = async (creator) => {
         if (userRole !== 'admin') return alert('權限不足：只有管理員能刪除資料。');
-        if (!isRealMode) {
-          setData(data.filter(d => d.id !== creator.id));
-          setCreatorToDelete(null); setSelectedCreator(null);
-        } else {
-          try {
-            if (!creator.id) throw new Error('缺少 id Primary Key');
-            const { error } = await supabase.from('influencers').delete().eq('id', creator.id);
-            if (error) throw error;
-            setData(data.filter(d => d.id !== creator.id)); 
-            setCreatorToDelete(null); setSelectedCreator(null);
-          } catch (err) {
-            alert(`🚨 刪除失敗！\n錯誤訊息：${err.message || '未知錯誤'}`);
-            throw err;
-          }
+        
+        try {
+          if (!creator.id) throw new Error('缺少 id Primary Key');
+          const { error } = await supabase.from('influencers').delete().eq('id', creator.id);
+          if (error) throw error;
+          
+          // ✅ 刪除成功後，關閉彈窗，並重新向雲端抓取最新資料
+          setCreatorToDelete(null); 
+          setSelectedCreator(null);
+          fetchData();
+
+        } catch (err) {
+          alert(`🚨 刪除失敗！\n錯誤訊息：${err.message || '未知錯誤'}`);
+          throw err;
         }
       };
 
@@ -650,54 +639,110 @@
         setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
       };
 
-      const handleExportCSV = () => {
+      // 📝 雲端直連版：匯出 CSV
+      const handleExportCSV = async () => {
         if (!['admin', 'editor'].includes(userRole)) {
           alert('權限不足：只有管理員和編輯者能匯出資料。');
           return;
         }
 
-        const dataToExport = selectedIds.length > 0 
-          ? safeData.filter(d => selectedIds.includes(d.id)) 
-          : filteredData;
+        try {
+          // 讓畫面轉圈圈，避免使用者以為當機重複點擊
+          setIsLoading(true);
 
-        if (dataToExport.length === 0) {
-          alert('目前沒有資料可供匯出！');
-          return;
-        }
+          let query = supabase.from('influencers').select('*');
 
-        const headers = ['網紅姓名', '最高粉絲數', 'Email', 'Instagram', 'YouTube', 'Facebook', '其他社群連結', '額外曝光管道與說明', '合作模式 Tags', '固定開團平台', '保底費用 / 預計分潤', '備註'];
-        const escapeCSV = (str) => {
-          if (str === null || str === undefined) return '""';
-          return `"${String(str).replace(/"/g, '""')}"`;
-        };
-
-        const rows = dataToExport.map(d => {
-          const parsedSocials = mergeDisplaySocials(d);
-          const otherLinks = [];
-          Object.entries(parsedSocials).forEach(([k, v]) => {
-            if (v && k !== 'YouTube' && k !== 'Facebook' && k !== 'Instagram') {
-              if (Array.isArray(v)) {
-                v.forEach(url => { if(url) otherLinks.push(`${k}: ${url}`); });
-              }
+          // 情境 A：如果有勾選特定網紅，就只去雲端抓這幾個人的資料
+          if (selectedIds.length > 0) {
+            query = query.in('id', selectedIds);
+          } 
+          // 情境 B：沒有勾選，就把目前的「所有篩選條件」傳給雲端，要求打包全部符合條件的人
+          else {
+            if (searchTerm.trim()) {
+              const s = `%${searchTerm.trim()}%`;
+              query = query.or(`name.ilike.${s},user_id.ilike.${s}`);
             }
+            if (selectedCategories.length > 0) {
+              const catFilters = selectedCategories.map(cat => `category.ilike.%${cat}%`).join(',');
+              query = query.or(catFilters);
+            }
+            if (advFilters.followers !== 'all') {
+              if (advFilters.followers === 'nano') query = query.lt('followers', 10000);
+              if (advFilters.followers === 'micro') query = query.gte('followers', 10000).lt('followers', 50000);
+              if (advFilters.followers === 'macro') query = query.gte('followers', 50000).lt('followers', 150000);
+              if (advFilters.followers === 'mega') query = query.gte('followers', 150000).lt('followers', 300000);
+              if (advFilters.followers === 'toptier') query = query.gte('followers', 300000);
+            }
+            if (advFilters.promoPlats.length > 0) {
+              const platFilters = advFilters.promoPlats.map(plat => `promo_platforms.ilike.%${plat}%`).join(',');
+              query = query.or(platFilters);
+            }
+            if (advFilters.tags.length > 0) {
+              const tagFilters = advFilters.tags.map(tag => `collaboration_tags.ilike.%${tag}%`).join(',');
+              query = query.or(tagFilters);
+            }
+            if (advFilters.hasQuote) {
+              query = query.or(`base_fee.neq.,base_fee.neq.無,base_fee.neq.-,commission_rate.neq.,commission_rate.neq.無,commission_rate.neq.-`);
+            }
+            
+            // 確保匯出的順序跟畫面上看的一樣
+            if (sortBy === 'newest') query = query.order('id', { ascending: false });
+            else if (sortBy === 'oldest') query = query.order('id', { ascending: true });
+            else if (sortBy === 'followers_desc') query = query.order('followers', { ascending: false });
+            else if (sortBy === 'followers_asc') query = query.order('followers', { ascending: true });
+          }
+
+          // 向 Supabase 發送請求 (設定 limit 為 50000，確保即使資料很多也能一次匯出)
+          const { data: exportData, error } = await query.limit(50000);
+
+          if (error) throw error;
+          if (!exportData || exportData.length === 0) {
+            alert('目前沒有資料可供匯出！');
+            return;
+          }
+
+          // 接下來就是原本的轉檔邏輯，把抓下來的 exportData 轉成 Excel 看得懂的 CSV 格式
+          const headers = ['網紅姓名', '最高粉絲數', 'Email', 'Instagram', 'YouTube', 'Facebook', '其他社群連結', '額外曝光管道與說明', '合作模式 Tags', '固定開團平台', '保底費用 / 預計分潤', '備註'];
+          const escapeCSV = (str) => {
+            if (str === null || str === undefined) return '""';
+            return `"${String(str).replace(/"/g, '""')}"`;
+          };
+
+          const rows = exportData.map(d => {
+            const parsedSocials = mergeDisplaySocials(d);
+            const otherLinks = [];
+            Object.entries(parsedSocials).forEach(([k, v]) => {
+              if (v && k !== 'YouTube' && k !== 'Facebook' && k !== 'Instagram') {
+                if (Array.isArray(v)) {
+                  v.forEach(url => { if(url) otherLinks.push(`${k}: ${url}`); });
+                }
+              }
+            });
+
+            return [
+              escapeCSV(d.name), escapeCSV(d.followers), escapeCSV(d.email), escapeCSV(d.instagram_url || (parsedSocials['Instagram']?.[0] || '')), escapeCSV(d.youtube_url || (parsedSocials['YouTube']?.[0] || '')),
+              escapeCSV(d.facebook_url || (parsedSocials['Facebook']?.[0] || '')), escapeCSV(otherLinks.join('\n')), escapeCSV(d.extra_platforms), escapeCSV(d.collaboration_tags),
+              escapeCSV(d.promo_platforms), escapeCSV(`保底: ${d.base_fee || '無'} / 分潤: ${d.commission_rate || '無'}`), escapeCSV(d.notes)
+            ].join(',');
           });
 
-          return [
-            escapeCSV(d.name), escapeCSV(d.followers), escapeCSV(d.email), escapeCSV(d.instagram_url || (parsedSocials['Instagram']?.[0] || '')), escapeCSV(d.youtube_url || (parsedSocials['YouTube']?.[0] || '')),
-            escapeCSV(d.facebook_url || (parsedSocials['Facebook']?.[0] || '')), escapeCSV(otherLinks.join('\n')), escapeCSV(d.extra_platforms), escapeCSV(d.collaboration_tags),
-            escapeCSV(d.promo_platforms), escapeCSV(`保底: ${d.base_fee || '無'} / 分潤: ${d.commission_rate || '無'}`), escapeCSV(d.notes)
-          ].join(',');
-        });
+          // 產生檔案並下載
+          const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\n');
+          const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.setAttribute('download', `Affiliate_Database_Export_${new Date().toISOString().slice(0,10)}.csv`);
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
 
-        const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\n');
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', `Affiliate_Database_Export_${new Date().toISOString().slice(0,10)}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        } catch (err) {
+          console.error("匯出失敗:", err);
+          alert("匯出資料時發生錯誤，請稍後再試。");
+        } finally {
+          setIsLoading(false);
+        }
       };
 
       const startTour = () => {
@@ -772,7 +817,7 @@
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand/50 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-brand"></span>
               </span>
-              資料庫總計: <span className="text-slate-800 font-black text-xs">{data.length}</span> 筆
+              資料庫總計: <span className="text-slate-800 font-black text-xs">{totalCount}</span> 筆
             </div>
 
             <header className="bg-white/80 backdrop-blur-xl border-b border-slate-100 px-4 lg:px-6 py-3 lg:py-4 flex flex-col lg:flex-row items-center justify-between sticky top-0 z-50 shadow-[0_1px_20px_rgba(0,0,0,0.04)] gap-4">
@@ -934,11 +979,11 @@
                 <div className="flex items-center justify-center h-64 text-slate-400 font-medium flex-col gap-3"><span className="relative flex h-4 w-4"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand/50 opacity-75"></span><span className="relative inline-flex rounded-full h-4 w-4 bg-brand"></span></span>資料讀取中...</div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5">
-                  {displayedData.map(creator => (
+                  {data.map(creator => (
                     <CreatorCard key={creator.id} data={creator} userRole={userRole} onClick={() => setSelectedCreator(creator)} isSelected={selectedIds.includes(creator.id)} onToggleSelect={(e) => toggleSelection(creator.id, e)} />
                   ))}
 
-                  {filteredData.length > 0 && (
+                  {data.length > 0 && (
                     <div className="col-span-full flex justify-center items-center gap-4 py-8">
                       <button onClick={() => { setCurrentPage(p => Math.max(1,p-1)); document.getElementById('scroll-container').scrollTo({top:0,behavior:'smooth'}); }} disabled={currentPage===1} className="px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 font-bold hover:bg-slate-50 hover:text-brand disabled:opacity-40 transition-all shadow-sm text-sm">上一頁</button>
                       
@@ -957,13 +1002,13 @@
                           ))}
                         </select>
                         頁，共 {totalPages} 頁
-                        <span className="text-slate-400 ml-1.5 hidden sm:inline">/ {filteredData.length} 筆</span>
+                        <span className="text-slate-400 ml-1.5 hidden sm:inline">/ {totalCount} 筆</span>
                       </div>
 
                       <button onClick={() => { setCurrentPage(p => Math.min(totalPages,p+1)); document.getElementById('scroll-container').scrollTo({top:0,behavior:'smooth'}); }} disabled={currentPage===totalPages} className="px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 font-bold hover:bg-slate-50 hover:text-brand disabled:opacity-40 transition-all shadow-sm text-sm">下一頁</button>
                     </div>
                   )}
-                  {filteredData.length === 0 && <div className="col-span-full text-center py-24 text-slate-400 font-medium">找不到符合條件的網紅資料 🥲</div>}
+                  {data.length === 0 && !isLoading && <div className="col-span-full text-center py-24 text-slate-400 font-medium">找不到符合條件的網紅資料 🥲</div>}
                 </div>
               )}
             </div>
@@ -1415,8 +1460,8 @@
         setFormData({...formData, other_social_platforms: JSON.stringify(obj)});
       };
 
-      // 💡 增加 isBypass 參數，預設為 false
-const handleSubmit = async (e, isBypass = false) => {
+      // 💡 增加 isBypass 參數，預設為 false (雲端雷達升級版)
+      const handleSubmit = async (e, isBypass = false) => {
         if (e) e.preventDefault();
         setDuplicateConflict(null);
         
@@ -1444,73 +1489,103 @@ const handleSubmit = async (e, isBypass = false) => {
           return;
         }
 
-        // 3. 【智慧防撞雷達】多維度檢查重複
+        // 鎖定按鈕，防止使用者連點
+        setIsSaving(true);
+
+        // 3. 【雲端防撞雷達】去 Supabase 尋找潛在重複的資料
         const currentUrls = extractAllUrls({...formData, other_social_platforms: JSON.stringify(otherSocialsObj)});
         const inputName = (formData.name || '').trim().toLowerCase();
         const inputEmail = (formData.email || '').trim().toLowerCase();
+        const inputUserId = (formData.user_id || '').trim().toLowerCase();
 
         let hardMatch = null;   // 🔴 絕對重複 (網址/ID)
         let softMatch = null;   // 🟠 疑似重複 (Email/姓名智慧模糊比對)
 
-        existingData.forEach(d => {
-          if (String(d.id) === String(formData.id)) return; // 編輯模式跳過自己
-
-          // --- 🔴 第一層：絕對比對 (網址或帳號 ID) ---
-          const dUrls = extractAllUrls(d);
-          const hasUrlMatch = currentUrls.some(cu => dUrls.includes(cu));
-          // 排除 N/A，針對有效的 ID 進行比對
-          const hasIdMatch = formData.user_id !== 'N/A' && d.user_id && d.user_id.toLowerCase() === formData.user_id.toLowerCase();
+        try {
+          // 3-1. 建立雲端通緝條件
+          const orConditions = [];
+          if (inputUserId && inputUserId !== 'n/a') orConditions.push(`user_id.ilike.${inputUserId}`);
+          if (inputEmail) orConditions.push(`email.ilike.${inputEmail}`);
+          if (inputName.length >= 2) orConditions.push(`name.ilike.%${inputName}%`);
           
-          if (hasUrlMatch || hasIdMatch) {
-            hardMatch = d;
-            return; // 命中硬阻擋就不用往下跑了
+          currentUrls.forEach(url => {
+            const cleanUrl = url.replace(/,/g, ''); // 避免逗號破壞 Supabase 語法
+            if (cleanUrl) {
+              orConditions.push(`other_social_platforms.ilike.%${cleanUrl}%`);
+              orConditions.push(`instagram_url.ilike.%${cleanUrl}%`);
+              orConditions.push(`youtube_url.ilike.%${cleanUrl}%`);
+              orConditions.push(`facebook_url.ilike.%${cleanUrl}%`);
+            }
+          });
+
+          // 3-2. 發送偵察機去 Supabase 抓嫌疑犯
+          let potentialConflicts = [];
+          if (orConditions.length > 0 && !isBypass) {
+            const { data: conflicts, error } = await supabase
+              .from('influencers')
+              .select('*')
+              .or(orConditions.join(','));
+              
+            if (error) throw error;
+            potentialConflicts = conflicts || [];
           }
 
-          // --- 🟠 第二層：智慧模糊比對 (Email 或 姓名關鍵字) ---
-          if (!hardMatch) {
-            const dName = (d.name || '').toLowerCase();
-            const dEmail = (d.email || '').toLowerCase();
+          // 3-3. 讓抓回來的嫌疑犯，跑我們原本寫好的精準判斷邏輯
+          potentialConflicts.forEach(d => {
+            if (String(d.id) === String(formData.id)) return; // 編輯模式跳過自己
 
-            // A. Email 完全命中
-            const emailMatch = inputEmail && dEmail && inputEmail === dEmail;
+            // --- 🔴 第一層：絕對比對 (網址或帳號 ID) ---
+            const dUrls = extractAllUrls(d);
+            const hasUrlMatch = currentUrls.some(cu => dUrls.includes(cu));
+            const hasIdMatch = inputUserId !== 'n/a' && d.user_id && d.user_id.toLowerCase() === inputUserId;
+            
+            if (hasUrlMatch || hasIdMatch) {
+              hardMatch = d;
+              return;
+            }
 
-            // B. 姓名智慧比對 (全字串互相包含法，防止字母拼字誤判)
-            let nameSimilar = false;
-            if (inputName.length >= 2 && dName) {
-              // 只要你打的整串字包含在舊資料裡，或舊資料包含你打的整串字，才算重複
-              if (dName.includes(inputName) || inputName.includes(dName)) {
-                nameSimilar = true;
+            // --- 🟠 第二層：智慧模糊比對 (Email 或 姓名關鍵字) ---
+            if (!hardMatch) {
+              const dName = (d.name || '').toLowerCase();
+              const dEmail = (d.email || '').toLowerCase();
+
+              const emailMatch = inputEmail && dEmail && inputEmail === dEmail;
+              let nameSimilar = false;
+              if (inputName.length >= 2 && dName) {
+                if (dName.includes(inputName) || inputName.includes(dName)) nameSimilar = true;
+              }
+
+              if (emailMatch || nameSimilar) {
+                softMatch = d;
               }
             }
+          });
+        } catch (err) {
+          console.error("查重雷達發生錯誤，但允許繼續存檔:", err);
+        }
 
-            if (emailMatch || nameSimilar) {
-              softMatch = d;
-            }
-          }
-        });
-
-        // 判斷雷達結果
+        // 3-4. 判斷雷達結果並觸發 UI 警告
         if (hardMatch) {
-          setDuplicateConflict({ ...hardMatch, type: 'hard' }); // 觸發紅色警告
+          setDuplicateConflict({ ...hardMatch, type: 'hard' }); 
           document.getElementById('form-scroll-area')?.scrollTo({top: 0, behavior: 'smooth'});
+          setIsSaving(false); // 記得解除按鈕鎖定
           return;
         }
 
-        // 💡 如果 isBypass 是 true，就不會進入這個 if 區塊，直接往存檔跑
-if (softMatch && !formData.ignoreSoftWarning && !isBypass) {
-          setDuplicateConflict({ ...softMatch, type: 'soft' }); // 觸發橘色警告
+        if (softMatch && !formData.ignoreSoftWarning && !isBypass) {
+          setDuplicateConflict({ ...softMatch, type: 'soft' }); 
           document.getElementById('form-scroll-area')?.scrollTo({top: 0, behavior: 'smooth'});
+          setIsSaving(false); // 記得解除按鈕鎖定
           return;
         }
 
         // 4. 【執行儲存】通過所有雷達後，正式存檔
-        setIsSaving(true);
         try {
           const payload = {...formData};
           
-          // 💡 核心修復：把所有不屬於資料庫的 UI 旗標通通刪除
+          // 拔除 UI 旗標
           delete payload.ignoreSoftWarning;
-          delete payload.type; // <--- 新增這一行！
+          delete payload.type; 
 
           payload.followers = parseInt(String(payload.followers).replace(/,/g,''),10) || 0;
           
@@ -1520,11 +1595,13 @@ if (softMatch && !formData.ignoreSoftWarning && !isBypass) {
           payload.facebook_url = (otherSocialsObj['Facebook'] && otherSocialsObj['Facebook'][0]) || '';
           
           await onSave(payload, isEditing, initialData?.id);
-          // 儲存成功後重設警告旗標
+          
           setFormData(prev => ({...prev, ignoreSoftWarning: false}));
         } catch (err) {
           console.error("Form Submit Failed:", err);
-        } finally { setIsSaving(false); }
+        } finally { 
+          setIsSaving(false); 
+        }
       };
 
       const startFormTour = () => {
