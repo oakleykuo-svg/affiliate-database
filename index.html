@@ -41,6 +41,7 @@
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
 
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700;800;900&display=swap');
@@ -409,6 +410,7 @@
 
       // 🛒 購物車狀態
       const [selectedIds, setSelectedIds] = useState([]);
+const [conflictList, setConflictList] = useState([]); // 存放待審核的衝突清單
       const prevEmailRef = useRef(null);
 
       // ---------------------------------------------------------
@@ -744,6 +746,86 @@
           setIsLoading(false);
         }
       };
+// 📝 雲端智慧同步：執行 Upsert + 異常攔截
+      const handleSmartSync = (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+        setIsLoading(true);
+
+        Papa.parse(file, {
+          header: true,
+          skipEmptyLines: true,
+          complete: async (results) => {
+            const uploadData = results.data;
+            try {
+              // 1. 抓取資料庫現有的 ID, 姓名, Email 用於比對
+              const { data: dbSummary, error: fetchErr } = await supabase
+                .from('influencers')
+                .select('id, user_id, name, email');
+              if (fetchErr) throw fetchErr;
+
+              const safeToUpsert = [];
+              const conflicts = [];
+
+              // 2. 執行雙層比對邏輯
+              uploadData.forEach(incoming => {
+                if (!incoming.user_id) return;
+
+                // 第一層：檢查 ID 是否一模一樣 (ID 相同則自動通行，進入 Upsert 清單)
+                const sameIdMatch = dbSummary.find(db => db.user_id?.toLowerCase() === incoming.user_id.toLowerCase());
+                if (sameIdMatch) {
+                  safeToUpsert.push(incoming);
+                  return;
+                }
+
+                // 第二層：姓名模糊或 Email 相同 (疑似重複，進入攔截清單)
+                const inputName = (incoming.name || '').trim().toLowerCase();
+                const inputEmail = (incoming.email || '').trim().toLowerCase();
+
+                const suspicious = dbSummary.find(db => {
+                  const dbName = (db.name || '').toLowerCase();
+                  const dbEmail = (db.email || '').toLowerCase();
+                  const emailMatch = inputEmail && dbEmail && inputEmail === dbEmail;
+                  const nameSimilar = inputName.length >= 2 && (dbName.includes(inputName) || inputName.includes(dbName));
+                  return emailMatch || nameSimilar;
+                });
+
+                if (suspicious) {
+                  conflicts.push({ incoming, existing: suspicious });
+                } else {
+                  safeToUpsert.push(incoming);
+                }
+              });
+
+              // 3. 執行安全資料的 Upsert
+              if (safeToUpsert.length > 0) {
+                const cleanedSafeData = safeToUpsert.map(d => ({
+                  ...d,
+                  followers: parseInt(String(d.followers).replace(/\D/g, ''), 10) || 0,
+                  last_updated_date: new Date().toISOString()
+                }));
+                const { error: upsertErr } = await supabase.from('influencers').upsert(cleanedSafeData, { onConflict: 'user_id' });
+                if (upsertErr) throw upsertErr;
+              }
+
+              // 4. 顯示結果
+              if (conflicts.length > 0) {
+                setConflictList(conflicts); // 觸發審核彈窗
+                alert(`安全資料 ${safeToUpsert.length} 筆已同步！\n但發現 ${conflicts.length} 筆疑似重複，請進行人工審核。`);
+              } else {
+                alert(`同步完成！共處理 ${safeToUpsert.length} 筆資料。`);
+              }
+              fetchData();
+            } catch (err) {
+              console.error("同步失敗:", err);
+              alert(`🚨 同步出錯：${err.message}`);
+            } finally {
+              setIsLoading(false);
+              event.target.value = '';
+            }
+          }
+        });
+      };
 
       const startTour = () => {
         if (!window.driver) return alert('載入導覽套件失敗，請稍後重試。');
@@ -848,19 +930,33 @@
                   <Icon name="help" size={15} /> <span className="hidden lg:inline">導覽</span>
                 </button>
 
+                {/* 1. 匯出與批次同步區塊 (已修復標籤結構) */}
                 {['admin', 'editor'].includes(userRole) && (
-                  <div id="tour-export">
-                    {selectedIds.length > 0 ? (
-                      <div className="flex items-center gap-1.5 bg-brand/10 p-1 pl-1.5 rounded-2xl border border-brand/20 animate-fade-in shrink-0">
-                        <button onClick={handleExportCSV} className="flex items-center gap-2 text-white bg-brand px-4 py-1.5 rounded-xl text-sm font-bold shadow-sm hover:bg-red-600 transition-all"><Icon name="download" size={16} /> 匯出已選 ({selectedIds.length})</button>
-                        <button onClick={() => setSelectedIds([])} className="px-3 py-1.5 text-xs font-bold text-brand hover:bg-brand/20 rounded-xl transition-all" title="清除選取">清除</button>
-                      </div>
-                    ) : (
-                      <button onClick={handleExportCSV} className="shrink-0 flex items-center justify-center gap-2 text-slate-600 bg-white border border-slate-200 px-4 py-2.5 rounded-2xl text-sm font-bold transition-all hover:bg-slate-50 hover:text-brand hover:border-brand/30 shadow-sm"><Icon name="download" size={16} /> <span className="hidden lg:inline">匯出</span></button>
-                    )}
-                  </div>
+                  <React.Fragment>
+                    <div id="tour-export">
+                      {selectedIds.length > 0 ? (
+                        <div className="flex items-center gap-1.5 bg-brand/10 p-1 pl-1.5 rounded-2xl border border-brand/20 animate-fade-in shrink-0">
+                          <button onClick={handleExportCSV} className="flex items-center gap-2 text-white bg-brand px-4 py-1.5 rounded-xl text-sm font-bold shadow-sm hover:bg-red-600 transition-all"><Icon name="download" size={16} /> 匯出已選 ({selectedIds.length})</button>
+                          <button onClick={() => setSelectedIds([])} className="px-3 py-1.5 text-xs font-bold text-brand hover:bg-brand/20 rounded-xl transition-all" title="清除選取">清除</button>
+                        </div>
+                      ) : (
+                        <button onClick={handleExportCSV} className="shrink-0 flex items-center justify-center gap-2 text-slate-600 bg-white border border-slate-200 px-4 py-2.5 rounded-2xl text-sm font-bold transition-all hover:bg-slate-50 hover:text-brand hover:border-brand/30 shadow-sm"><Icon name="download" size={16} /> <span className="hidden lg:inline">匯出</span></button>
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <a href="你的_GOOGLE_試算表_連結" target="_blank" className="shrink-0 flex items-center justify-center gap-1.5 text-slate-500 bg-white border border-slate-200 px-3 py-2.5 rounded-xl text-[11px] font-bold transition-all hover:bg-slate-50 hover:text-brand" title="開啟 Google 試算表填寫資料">
+                        <Icon name="external" size={14} /> <span className="hidden xl:inline">1. 開啟管理表單</span>
+                      </a>
+                      <label className="shrink-0 cursor-pointer flex items-center justify-center gap-1.5 text-white px-4 py-2.5 rounded-xl text-[11px] font-black transition-all shadow-glow hover:shadow-lg" style={{ background: 'linear-gradient(135deg, #E14f4b 0%, #f0857f 100%)' }}>
+                        <Icon name="refresh" size={14} /> 2. 雲端同步並檢查
+                        <input type="file" accept=".csv" className="hidden" onChange={(e) => handleSmartSync(e)} />
+                      </label>
+                    </div>
+                  </React.Fragment>
                 )}
 
+                {/* 新增網紅區塊 */}
                 {['admin', 'editor'].includes(userRole) && (
                   <div id="tour-add">
                     <button onClick={openCreateForm} className="shrink-0 flex items-center justify-center gap-2 text-white px-5 py-2.5 rounded-2xl text-sm font-black transition-all shadow-glow hover:shadow-lg hover:-translate-y-0.5" style={{ background: 'linear-gradient(135deg, #E14f4b 0%, #f0857f 50%, #c75551 100%)' }}>
@@ -1017,6 +1113,13 @@
           {isFormOpen && <FormModal existingData={data} categories={categories} initialData={editingData} onClose={closeForm} onSave={handleSaveCreator} onViewDuplicate={(creator) => { setSelectedCreator(creator); }} />}
           {selectedCreator && <DetailModal data={selectedCreator} userRole={userRole} onClose={() => setSelectedCreator(null)} onEdit={() => openEditForm(selectedCreator)} onDelete={() => { setSelectedCreator(null); setCreatorToDelete(selectedCreator); }} />}
           {creatorToDelete && <ConfirmDeleteModal data={creatorToDelete} onClose={() => setCreatorToDelete(null)} onConfirm={handleDeleteCreator} />}
+{conflictList.length > 0 && (
+            <ConflictReportModal 
+              list={conflictList} 
+              onClose={() => { setConflictList([]); fetchData(); }} 
+              onHandled={(handledUserId) => setConflictList(prev => prev.filter(c => c.incoming.user_id !== handledUserId))} 
+            />
+          )}
         </div>
       );
     }
@@ -1929,6 +2032,71 @@
             <div className="flex gap-3 w-full">
               <button onClick={onClose} disabled={isDeleting} className="flex-1 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-2xl transition-colors disabled:opacity-50">保留</button>
               <button onClick={handleConfirm} disabled={isDeleting} className="flex-1 py-3.5 text-white font-black rounded-2xl shadow-[0_4px_15px_rgba(220,38,38,0.3)] transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:translate-y-0" style={{background:'linear-gradient(135deg,#dc2626,#b91c1c)'}}>{isDeleting ? '刪除中...' : '確認刪除'}</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+// 🚩 異常回報彈窗 (Conflict Resolution)
+    function ConflictReportModal({ list, onClose, onHandled }) {
+      if (!list || list.length === 0) return null;
+
+      const handleFix = async (incoming, existingId, action) => {
+        try {
+          if (action === 'merge') {
+            // 是同一人：覆蓋舊檔案
+            const payload = { ...incoming, last_updated_date: new Date().toISOString() };
+            delete payload.id;
+            const { error } = await supabase.from('influencers').update(payload).eq('id', existingId);
+            if (error) throw error;
+          } else {
+            // 不同人：強行新增
+            const payload = { ...incoming, last_updated_date: new Date().toISOString() };
+            const { error } = await supabase.from('influencers').insert([payload]);
+            if (error) throw error;
+          }
+          onHandled(incoming.user_id); // 處理完後從清單移除該筆
+        } catch (err) {
+          alert("處理失敗: " + err.message);
+        }
+      };
+
+      return (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-zoom-in">
+            <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-amber-50">
+              <div>
+                <h3 className="text-xl font-black text-amber-800">🚨 疑似重複資料回報</h3>
+                <p className="text-sm text-amber-600 font-bold">系統發現以下資料與在庫檔案極為相似，請人工判定是否為同一人。</p>
+              </div>
+              <button onClick={onClose} className="p-2 bg-white rounded-full text-slate-400 hover:text-slate-600"><Icon name="x" size={24} /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-8 space-y-6 no-scrollbar">
+              {list.map((item, index) => (
+                <div key={index} className="grid grid-cols-11 gap-4 items-center p-6 bg-slate-50 rounded-3xl border border-slate-200">
+                  <div className="col-span-5">
+                    <div className="text-[10px] font-black text-slate-400 uppercase mb-2">上傳的新資料</div>
+                    <div className="font-black text-slate-800">{item.incoming.name}</div>
+                    <div className="text-xs text-slate-500">ID: {item.incoming.user_id}</div>
+                    <div className="text-xs text-slate-500 truncate">Email: {item.incoming.email || '無'}</div>
+                  </div>
+                  <div className="col-span-1 flex justify-center text-slate-300"><Icon name="external" size={20} /></div>
+                  <div className="col-span-5">
+                    <div className="text-[10px] font-black text-amber-500 uppercase mb-2">在庫相似檔案</div>
+                    <div className="font-black text-slate-800">{item.existing.name}</div>
+                    <div className="text-xs text-slate-500">ID: {item.existing.user_id}</div>
+                    <div className="text-xs text-amber-600 font-bold truncate">Email: {item.existing.email || '無'}</div>
+                  </div>
+                  <div className="col-span-11 mt-4 pt-4 border-t border-slate-200 flex justify-end gap-3">
+                    <button onClick={() => handleFix(item.incoming, item.existing.id, 'ignore')} className="px-4 py-2 bg-white text-slate-500 border border-slate-200 rounded-xl text-xs font-bold hover:bg-slate-100">是不同人，強行新增</button>
+                    <button onClick={() => handleFix(item.incoming, item.existing.id, 'merge')} className="px-4 py-2 bg-amber-600 text-white rounded-xl text-xs font-black shadow-md hover:bg-amber-700">是同一人，覆蓋更新舊資料</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="p-6 bg-slate-50 border-t border-slate-100 text-center">
+              <button onClick={onClose} className="px-10 py-3 bg-slate-800 text-white rounded-2xl font-black shadow-lg">暫時關閉</button>
             </div>
           </div>
         </div>
