@@ -2077,15 +2077,16 @@ const [conflictList, setConflictList] = useState([]); // 存放待審核的衝�
 
       const handleFix = async (incoming, existingId, action) => {
         try {
+          // 💡 關鍵修復：拔除暫存區的 id 與 created_at
+          const { id, created_at, ...cleanIncoming } = incoming;
+          const payload = { ...cleanIncoming, last_updated_date: new Date().toISOString() };
+          
           if (action === 'merge') {
             // 是同一人：覆蓋舊檔案
-            const payload = { ...incoming, last_updated_date: new Date().toISOString() };
-            delete payload.id;
             const { error } = await supabase.from('influencers').update(payload).eq('id', existingId);
             if (error) throw error;
           } else {
             // 不同人：強行新增
-            const payload = { ...incoming, last_updated_date: new Date().toISOString() };
             const { error } = await supabase.from('influencers').insert([payload]);
             if (error) throw error;
           }
