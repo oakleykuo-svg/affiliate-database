@@ -411,6 +411,7 @@
       // 🛒 購物車狀態
       const [selectedIds, setSelectedIds] = useState([]);
 const [conflictList, setConflictList] = useState([]); // 存放待審核的衝突清單
+      const [showImportInstructions, setShowImportInstructions] = useState(false);
       const prevEmailRef = useRef(null);
 
       // ---------------------------------------------------------
@@ -1009,15 +1010,12 @@ const [conflictList, setConflictList] = useState([]); // 存放待審核的衝�
                     </div>
                     
                     <div className="flex items-center gap-2">
-                      <a href="https://docs.google.com/spreadsheets/d/1fwPWu0kzV1veLYq_KZUY5l6Qqrb0ObHd2FvvUOZCnSo/edit?gid=1222468160#gid=1222468160" target="_blank" className="shrink-0 flex items-center justify-center gap-1.5 text-slate-500 bg-white border border-slate-200 px-3 py-2.5 rounded-xl text-[11px] font-bold transition-all hover:bg-slate-50 hover:text-brand" title="開啟 Google 試算表填寫資料">
-                        <Icon name="external" size={14} /> <span className="hidden xl:inline">1. 開啟管理表單</span>
-                      </a>
                       <button 
-                        onClick={() => handleDatabaseSync()} 
-                        className="shrink-0 flex items-center justify-center gap-1.5 text-white px-4 py-2.5 rounded-xl text-[11px] font-black transition-all shadow-glow hover:shadow-lg active:scale-95" 
+                        onClick={() => setShowImportInstructions(true)}
+                        className="shrink-0 flex items-center justify-center gap-1.5 text-white px-5 py-2.5 rounded-xl text-[11px] font-black transition-all shadow-glow hover:shadow-lg active:scale-95" 
                         style={{ background: 'linear-gradient(135deg, #E14f4b 0%, #f0857f 100%)' }}
                       >
-                        <Icon name="refresh" size={14} /> 2. 雲端同步並檢查
+                        <Icon name="refresh" size={14} /> 進行多筆資料匯入
                       </button>
                     </div>
                   </React.Fragment>
@@ -1187,6 +1185,11 @@ const [conflictList, setConflictList] = useState([]); // 存放待審核的衝�
               onHandled={(handledUserId) => setConflictList(prev => prev.filter(c => c.incoming.user_id !== handledUserId))} 
             />
           )}
+          <ImportInstructionModal 
+            isOpen={showImportInstructions} 
+            onClose={() => setShowImportInstructions(false)} 
+            onManualSync={() => { handleDatabaseSync(); setShowImportInstructions(false); }} 
+          />
         </div>
       );
     }
@@ -2104,7 +2107,78 @@ const [conflictList, setConflictList] = useState([]); // 存放待審核的衝�
         </div>
       );
     }
+// 🚀 多筆資料匯入須知彈窗組件
+    function ImportInstructionModal({ isOpen, onClose, onManualSync }) {
+      if (!isOpen) return null;
+      return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden animate-zoom-in border border-white/20">
+            <div className="p-8">
+              <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mb-6">
+                <Icon name="file-text" className="text-slate-600" size={32} />
+              </div>
+              
+              <h3 className="text-2xl font-black text-slate-800 mb-5">📢 多筆資料匯入須知</h3>
 
+              <div className="space-y-5 mb-8">
+                <div className="space-y-3">
+                  <h4 className="text-[13px] font-bold text-slate-400 uppercase tracking-wider">【 填寫注意事項 】</h4>
+                  <ul className="space-y-2.5">
+                    <li className="flex gap-2 text-sm text-slate-600 leading-snug">
+                      <span className="text-brand">●</span>
+                      <span><strong>ID 為核心：</strong>務必填寫 <code className="bg-slate-100 px-1 rounded text-brand">user_id</code> (IG 帳號) 和 <code className="bg-slate-100 px-1 rounded text-brand">name</code> (名字)，這是系統辨識身分的兩個依據。</span>
+                    </li>
+                    <li className="flex gap-2 text-sm text-slate-600 leading-snug">
+                      <span className="text-brand">●</span>
+                      <span><strong>愈詳細愈好：</strong>資料的豐富度決定了日後篩選的精準度，欄位填寫愈完整，資料價值愈高。</span>
+                    </li>
+                    <li className="flex gap-2 text-sm text-slate-600 leading-snug">
+                      <span className="text-brand">●</span>
+                      <span><strong>智慧保護：</strong>若試算表欄位留白，系統將保留資料庫原有的舊資料，不會惡意覆蓋。</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <div className="h-px bg-slate-100 w-full" />
+
+                <div className="space-y-3">
+                  <h4 className="text-[13px] font-bold text-slate-400 uppercase tracking-wider">【 操作限制提醒 】</h4>
+                  <div className="bg-amber-50/50 border border-amber-100 p-4 rounded-2xl">
+                    <p className="text-sm text-amber-800 leading-relaxed">
+                      <strong>效率 vs. 深度：</strong><br />
+                      多筆匯入旨在快速建立基礎資料。若需進行極其細膩的個性化備註或複雜設定，建議匯入後透過<strong>「單筆編輯」</strong>補強，以確保資料的多元性與完整性。
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <a 
+                  href="https://docs.google.com/spreadsheets/d/1fwPWu0kzV1veLYq_KZUY5l6Qqrb0ObHd2FvvUOZCnSo/edit?gid=1222468160#gid=1222468160" 
+                  target="_blank"
+                  className="w-full py-4 bg-slate-800 hover:bg-slate-900 text-white rounded-2xl font-black text-center transition-all shadow-lg active:scale-95"
+                >
+                  前往 Google 試算表填寫
+                </a>
+                <button 
+                  onClick={onManualSync}
+                  className="text-slate-400 text-[11px] font-bold hover:text-slate-600 hover:underline transition-all"
+                >
+                  自動同步失效？點此手動強制檢查
+                </button>
+              </div>
+            </div>
+            
+            <button 
+              onClick={onClose}
+              className="w-full py-4 bg-slate-50 text-slate-400 text-xs font-bold hover:bg-slate-100 transition-colors"
+            >
+              取消並返回
+            </button>
+          </div>
+        </div>
+      );
+    }
 // 🚩 異常回報彈窗 (Conflict Resolution)
     function ConflictReportModal({ list, onClose, onHandled }) {
       if (!list || list.length === 0) return null;
@@ -2140,7 +2214,6 @@ const [conflictList, setConflictList] = useState([]); // 存放待審核的衝�
           
           // 如果全部處理完了，關閉彈窗
           if (nextConflicts.length === 0) {
-            setShowSyncModal(false);
             alert("✅ 所有異常資料已處理完畢！");
           }
           
