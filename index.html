@@ -795,11 +795,15 @@ const [conflictList, setConflictList] = useState([]); // 存放待審核的衝�
           });
 
           if (safeToUpsert.length > 0) {
-            const cleanedSafeData = safeToUpsert.map(d => ({
-              ...d,
-              followers: parseInt(String(d.followers).replace(/\D/g, ''), 10) || 0,
-              last_updated_date: new Date().toISOString()
-            }));
+            const cleanedSafeData = safeToUpsert.map(d => {
+              // 💡 關鍵修復：拔除暫存區特有的 id 與 created_at
+              const { id, created_at, ...rest } = d; 
+              return {
+                ...rest,
+                followers: parseInt(String(rest.followers).replace(/\D/g, ''), 10) || 0,
+                last_updated_date: new Date().toISOString()
+              };
+            });
             const { error: upsertErr } = await supabase.from('influencers').upsert(cleanedSafeData, { onConflict: 'user_id' });
             if (upsertErr) throw upsertErr;
           }
