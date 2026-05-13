@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Affiliate Database TW</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
   
   <!-- 引入新手導覽動畫套件 Driver.js -->
   <script src="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.js.iife.js"></script>
@@ -717,54 +716,57 @@ const [conflictList, setConflictList] = useState([]); // 存放待審核的衝�
           }
 
           // ==========================================
-          // 💡 終極解法：使用 SheetJS 直接產生 .xlsx 檔案，繞過 CSV 安全限制
+          // 💡 純淨版 CSV 匯出邏輯 (共 13 個欄位，無頭像)
           // ==========================================
           const headers = [
-            "name(姓名)", "followers(最高粉絲數)", "instagram",
+            "網紅姓名", "followers(最高粉絲數)", "instagram",
             "facebook", "youtube", "Email",
-            "頭像", "category", "合作模式 Tags",
+            "合作類型", "合作模式 Tags",
             "參考合作貼文/連結", "額外曝光管道",
             "固定開團平台", "歷史開團成績", "備註"
           ];
 
-          // 1. 準備資料陣列 (AOA: Array of Arrays)
-          const aoa = [headers];
+          const escapeCSV = (str) => {
+            if (str === null || str === undefined) return '""';
+            return `"${String(str).replace(/"/g, '""')}"`;
+          };
 
-          exportData.forEach(d => {
+          const rows = exportData.map(d => {
             const parsedSocials = mergeDisplaySocials(d);
             
+            // 處理歷史業績格式
             const performanceText = Array.isArray(d.performance_history) 
               ? d.performance_history.map(p => `${p.date} | ${p.amount} | ${p.note}`).join('\n')
               : (d.performance_history || '');
 
-            const row = [
-              d.name || '',
-              d.followers || 0,
-              d.instagram_url || (parsedSocials['Instagram']?.[0] || ''),
-              d.facebook_url || (parsedSocials['Facebook']?.[0] || ''),
-              d.youtube_url || (parsedSocials['YouTube']?.[0] || ''),
-              d.email || '',
-              // 💡 關鍵突破：用 { f: '公式' } 物件格式寫入。這是真正的 Excel 公式，不會被加單引號！
-              d.avatar_url ? { f: `IMAGE("${d.avatar_url}", 1)` } : '',
-              Array.isArray(d.category) ? d.category.join(', ') : (d.category || ''),
-              Array.isArray(d.collaboration_tags) ? d.collaboration_tags.join(', ') : (d.collaboration_tags || ''),
-              d.reference_link || '',
-              d.extra_platforms || '',
-              Array.isArray(d.promo_platforms) ? d.promo_platforms.join(', ') : (d.promo_platforms || ''),
-              performanceText,
-              d.notes || ''
-            ];
-            aoa.push(row);
+            return [
+              escapeCSV(d.name),
+              escapeCSV(d.followers || 0),
+              escapeCSV(d.instagram_url || (parsedSocials['Instagram']?.[0] || '')),
+              escapeCSV(d.facebook_url || (parsedSocials['Facebook']?.[0] || '')),
+              escapeCSV(d.youtube_url || (parsedSocials['YouTube']?.[0] || '')),
+              escapeCSV(d.email),
+              escapeCSV(Array.isArray(d.category) ? d.category.join(', ') : (d.category || '')),
+              escapeCSV(Array.isArray(d.collaboration_tags) ? d.collaboration_tags.join(', ') : (d.collaboration_tags || '')),
+              escapeCSV(d.reference_link),
+              escapeCSV(d.extra_platforms),
+              escapeCSV(Array.isArray(d.promo_platforms) ? d.promo_platforms.join(', ') : (d.promo_platforms || '')),
+              escapeCSV(performanceText),
+              escapeCSV(d.notes)
+            ].join(',');
           });
 
-          // 2. 建立工作表與活頁簿
-          const ws = XLSX.utils.aoa_to_sheet(aoa);
-          const wb = XLSX.utils.book_new();
-          XLSX.utils.book_append_sheet(wb, ws, "AffiliateExport");
-
-          // 3. 觸發下載 (副檔名正式改為 .xlsx)
-          const fileName = `affiliate_export_${new Date().toISOString().split('T')[0]}.xlsx`;
-          XLSX.writeFile(wb, fileName);
+          // 產生 CSV 字串並觸發下載
+          let csvContent = "\uFEFF" + headers.join(",") + "\n" + rows.join("\n");
+          const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+          const link = document.createElement("a");
+          const url = URL.createObjectURL(blob);
+          link.setAttribute("href", url);
+          link.setAttribute("download", `affiliate_export_${new Date().toISOString().split('T')[0]}.csv`);
+          link.style.visibility = 'hidden';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
 
         } catch (err) {
           console.error("匯出失敗:", err);
