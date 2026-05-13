@@ -715,28 +715,55 @@ const [conflictList, setConflictList] = useState([]); // 存放待審核的衝�
             return;
           }
 
-          // 接下來就是原本的轉檔邏輯，把抓下來的 exportData 轉成 Excel 看得懂的 CSV 格式
-          const headers = ['網紅姓名', '最高粉絲數', 'Email', 'Instagram', 'YouTube', 'Facebook', '其他社群連結', '額外曝光管道與說明', '合作模式 Tags', '固定開團平台', '保底費用 / 預計分潤', '備註'];
+          // 接下來就是最新的轉檔邏輯，將 exportData 轉換為指定的 14 個欄位格式
+          const headers = [
+            "name(網紅姓名)", 
+            "followers(最高粉絲數)", 
+            "instagram_url(instagram)", 
+            "facebook_url(facebook)", 
+            "youtube_url(youtube)", 
+            "email(Email)", 
+            "avatar_url(頭像預覽)", 
+            "category(分類)", 
+            "collaboration_tags(合作模式 Tags)", 
+            "reference_link(參考合作貼文)", 
+            "extra_platforms(額外曝光管道)", 
+            "promo_platforms(固定開團平台)", 
+            "performance_history(歷史開團成績)", 
+            "notes(備註)"
+          ];
+
           const escapeCSV = (str) => {
             if (str === null || str === undefined) return '""';
             return `"${String(str).replace(/"/g, '""')}"`;
           };
 
           const rows = exportData.map(d => {
-            const parsedSocials = mergeDisplaySocials(d);
-            const otherLinks = [];
-            Object.entries(parsedSocials).forEach(([k, v]) => {
-              if (v && k !== 'YouTube' && k !== 'Facebook' && k !== 'Instagram') {
-                if (Array.isArray(v)) {
-                  v.forEach(url => { if(url) otherLinks.push(`${k}: ${url}`); });
-                }
-              }
-            });
+            const parsedSocials = mergeDisplaySocials(d); // 兼容舊版社群連結
+
+            // 💡 處理頭像：轉為 Google Sheets 的 =IMAGE 公式
+            const avatarFormula = d.avatar_url ? `=IMAGE("${d.avatar_url}", 1)` : '';
+
+            // 💡 處理歷史業績：將 JSON 陣列還原為「2025/11 | 500000 | 備註」格式
+            const performanceText = Array.isArray(d.performance_history) 
+              ? d.performance_history.map(p => `${p.date} | ${p.amount} | ${p.note}`).join('\n')
+              : (d.performance_history || '');
 
             return [
-              escapeCSV(d.name), escapeCSV(d.followers), escapeCSV(d.email), escapeCSV(d.instagram_url || (parsedSocials['Instagram']?.[0] || '')), escapeCSV(d.youtube_url || (parsedSocials['YouTube']?.[0] || '')),
-              escapeCSV(d.facebook_url || (parsedSocials['Facebook']?.[0] || '')), escapeCSV(otherLinks.join('\n')), escapeCSV(d.extra_platforms), escapeCSV(d.collaboration_tags),
-              escapeCSV(d.promo_platforms), escapeCSV(`保底: ${d.base_fee || '無'} / 分潤: ${d.commission_rate || '無'}`), escapeCSV(d.notes)
+              escapeCSV(d.name),
+              escapeCSV(d.followers || 0), // 維持純數字
+              escapeCSV(d.instagram_url || (parsedSocials['Instagram']?.[0] || '')),
+              escapeCSV(d.facebook_url || (parsedSocials['Facebook']?.[0] || '')),
+              escapeCSV(d.youtube_url || (parsedSocials['YouTube']?.[0] || '')),
+              escapeCSV(d.email),
+              escapeCSV(avatarFormula),
+              escapeCSV(Array.isArray(d.category) ? d.category.join(', ') : (d.category || '')),
+              escapeCSV(Array.isArray(d.collaboration_tags) ? d.collaboration_tags.join(', ') : (d.collaboration_tags || '')),
+              escapeCSV(d.reference_link),
+              escapeCSV(d.extra_platforms),
+              escapeCSV(Array.isArray(d.promo_platforms) ? d.promo_platforms.join(', ') : (d.promo_platforms || '')),
+              escapeCSV(performanceText),
+              escapeCSV(d.notes)
             ].join(',');
           });
 
