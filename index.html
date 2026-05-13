@@ -1805,6 +1805,18 @@ const [conflictList, setConflictList] = useState([]); // 存放待審核的衝�
 
           payload.followers = parseInt(String(payload.followers).replace(/,/g,''),10) || 0;
           
+          // 💡 將純文字轉為陣列：在存檔的這一刻，才把剛剛打的文字安全切開成 JSON 格式
+          if (typeof payload.performance_history === 'string') {
+            payload.performance_history = payload.performance_history.split('\n').map(line => {
+              const parts = line.split('|').map(s => s.trim());
+              return { 
+                date: parts[0] || '', 
+                amount: parseInt(String(parts[1]).replace(/\D/g, '')) || 0, 
+                note: parts[2] || '' 
+              };
+            }).filter(item => item.date || item.amount);
+          }
+          
           // 回填至舊有的單行欄位以維持相容性
           payload.instagram_url = (otherSocialsObj['Instagram'] && otherSocialsObj['Instagram'][0]) || '';
           payload.youtube_url = (otherSocialsObj['YouTube'] && otherSocialsObj['YouTube'][0]) || '';
@@ -2086,17 +2098,12 @@ const [conflictList, setConflictList] = useState([]); // 存放待審核的衝�
                         <textarea
                           className={`${inputCls} resize-y min-h-[100px] leading-relaxed`}
                           placeholder="每行一筆，例如：&#10;2025/11 | 500000 | 雙11檔期&#10;2026/04 | 800000 | 母親節團"
-                          value={Array.isArray(formData.performance_history) 
-                            ? formData.performance_history.map(p => `${p.date} | ${p.amount} | ${p.note}`).join('\n')
-                            : formData.performance_history || ''}
-                          onChange={(e) => {
-                            const lines = e.target.value.split('\n');
-                            const historyArray = lines.map(line => {
-                              const [date, amount, note] = line.split('|').map(s => s.trim());
-                              return { date: date || '', amount: amount || '', note: note || '' };
-                            }).filter(item => item.date || item.amount);
-                            setFormData({ ...formData, performance_history: historyArray });
-                          }}
+                          value={typeof formData.performance_history === 'string' 
+                            ? formData.performance_history 
+                            : Array.isArray(formData.performance_history) 
+                              ? formData.performance_history.map(p => `${p.date} | ${p.amount} | ${p.note}`).join('\n')
+                              : ''}
+                          onChange={(e) => setFormData({ ...formData, performance_history: e.target.value })}
                         />
                       </FormField>
 
