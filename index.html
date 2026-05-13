@@ -741,8 +741,14 @@ const [conflictList, setConflictList] = useState([]); // 存放待審核的衝�
           const rows = exportData.map(d => {
             const parsedSocials = mergeDisplaySocials(d); // 兼容舊版社群連結
 
-            // 💡 處理頭像：轉為 Google Sheets 的 =IMAGE 公式
-            const avatarFormula = d.avatar_url ? `=IMAGE("${d.avatar_url}", 1)` : '';
+            // 💡 處理頭像：破解 Google Sheets 單引號防護機制
+            // 1. 省略 ", 1" 參數 (因為 1 是預設值，這樣就少了一個逗號)
+            // 2. 將網址內可能存在的逗號進行 URL 編碼 (%2C)，確保整句公式沒有任何逗號
+            let avatarFormula = '""';
+            if (d.avatar_url) {
+              const safeUrl = d.avatar_url.replace(/,/g, '%2C');
+              avatarFormula = `=IMAGE("${safeUrl}")`;
+            }
 
             // 💡 處理歷史業績：將 JSON 陣列還原為「2025/11 | 500000 | 備註」格式
             const performanceText = Array.isArray(d.performance_history) 
@@ -756,7 +762,7 @@ const [conflictList, setConflictList] = useState([]); // 存放待審核的衝�
               escapeCSV(d.facebook_url || (parsedSocials['Facebook']?.[0] || '')),
               escapeCSV(d.youtube_url || (parsedSocials['YouTube']?.[0] || '')),
               escapeCSV(d.email),
-              escapeCSV(avatarFormula),
+              avatarFormula, // 💡 關鍵：直接輸出公式，絕對「不使用」 escapeCSV 雙引號包裝
               escapeCSV(Array.isArray(d.category) ? d.category.join(', ') : (d.category || '')),
               escapeCSV(Array.isArray(d.collaboration_tags) ? d.collaboration_tags.join(', ') : (d.collaboration_tags || '')),
               escapeCSV(d.reference_link),
