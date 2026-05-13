@@ -1207,6 +1207,15 @@ const [conflictList, setConflictList] = useState([]); // 存放待審核的衝�
       const lastUpdatedText = formatDate(data.last_updated_date);
       const displaySocialsObj = mergeDisplaySocials(data);
 
+      // 💡 邏輯：從歷史業績中找出最高金額
+      let maxPerformance = 0;
+      if (data.performance_history && Array.isArray(data.performance_history)) {
+        data.performance_history.forEach(p => {
+          const val = parseInt(String(p.amount).replace(/\D/g, '')) || 0;
+          if (val > maxPerformance) maxPerformance = val;
+        });
+      }
+
       // ✅ 新增：一鍵無聲複製信箱邏輯
       const handleCopyEmail = (e) => {
         e.stopPropagation();
@@ -1254,6 +1263,11 @@ const [conflictList, setConflictList] = useState([]); // 存放待審核的衝�
               <h2 className="text-sm font-black truncate text-slate-800 group-hover:grad-brand transition-colors">{data?.name}</h2>
               <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
                 <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest border ${tier.color}`}>{tier.label}</span>
+                {maxPerformance > 0 && (
+                  <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-md text-[9px] font-black uppercase tracking-widest border border-amber-200">
+                    🔥 最高業績: {maxPerformance.toLocaleString()}
+                  </span>
+                )}
                 <div className="flex items-center gap-1 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-200 group/foll relative cursor-help hover:border-slate-300 transition-colors">
                   <span className="text-[9px] font-bold text-slate-400">最高粉絲數</span><span className="text-[10px] font-black text-slate-700">{formatFollowers(data?.followers)}</span><Icon name="info" size={10} className="text-slate-400" />
                   <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-max max-w-[220px] p-2.5 bg-slate-900 text-white text-[10px] rounded-lg opacity-0 group-hover/foll:opacity-100 transition-opacity pointer-events-none shadow-xl z-30 font-medium leading-relaxed text-center">
@@ -1456,6 +1470,34 @@ const [conflictList, setConflictList] = useState([]); // 存放待審核的衝�
                     </div>
                   </div>
                   <div>
+                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.12em] mb-3">Track Record 歷史業績</h3>
+                    <div className="bg-slate-50 rounded-2xl p-1 border border-slate-100 overflow-hidden mb-6">
+                      {!data.performance_history || data.performance_history.length === 0 ? (
+                        <p className="text-sm text-slate-400 italic text-center py-5">尚無歷史業績紀錄</p>
+                      ) : (
+                        <table className="w-full text-sm text-left">
+                          <thead>
+                            <tr className="bg-slate-100/50 text-slate-400 text-[10px] uppercase">
+                              <th className="px-4 py-2 font-black">時間</th>
+                              <th className="px-4 py-2 font-black">業績金額</th>
+                              <th className="px-4 py-2 font-black">活動備註</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 bg-white">
+                            {([...data.performance_history]).sort((a,b) => b.date.localeCompare(a.date)).map((history, idx) => (
+                              <tr key={idx} className="hover:bg-amber-50/30 transition-colors">
+                                <td className="px-4 py-3 text-slate-500 font-bold">{history.date}</td>
+                                <td className="px-4 py-3 text-amber-600 font-black">${parseInt(history.amount).toLocaleString()}</td>
+                                <td className="px-4 py-3 text-slate-500">{history.note}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
                     <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.12em] mb-3">Tags & Platforms</h3>
                     <div className="space-y-2">
                       <div className="flex flex-wrap gap-2">{parseTags(data.category).map((t,i)=><span key={i} className="px-3 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-bold shadow-sm">{t}</span>)}</div>
@@ -1529,6 +1571,7 @@ const [conflictList, setConflictList] = useState([]); // 存放待審核的衝�
         collaboration_tags:'', promo_platforms:'', avatar_url:'', commission_rate:'', base_fee:'',
         youtube_url:'', facebook_url:'', anytag_url:'', extra_platforms:'',
         other_social_platforms: JSON.stringify({"Instagram": [""]}), 
+        performance_history: [],
         reference_link:'', quote_updated_date:'', notes:''
       });
 
@@ -2037,6 +2080,24 @@ const [conflictList, setConflictList] = useState([]); // 存放待審核的衝�
                             );
                           })}
                         </div>
+                      </FormField>
+
+                      <FormField label="歷史帶貨業績" hint="格式：2025/11 | 500000 | 備註" colSpan2>
+                        <textarea
+                          className={`${inputCls} resize-y min-h-[100px] leading-relaxed`}
+                          placeholder="每行一筆，例如：&#10;2025/11 | 500000 | 雙11檔期&#10;2026/04 | 800000 | 母親節團"
+                          value={Array.isArray(formData.performance_history) 
+                            ? formData.performance_history.map(p => `${p.date} | ${p.amount} | ${p.note}`).join('\n')
+                            : formData.performance_history || ''}
+                          onChange={(e) => {
+                            const lines = e.target.value.split('\n');
+                            const historyArray = lines.map(line => {
+                              const [date, amount, note] = line.split('|').map(s => s.trim());
+                              return { date: date || '', amount: amount || '', note: note || '' };
+                            }).filter(item => item.date || item.amount);
+                            setFormData({ ...formData, performance_history: historyArray });
+                          }}
+                        />
                       </FormField>
 
                       <FormField label="預計分潤比率"><input type="text" value={formData.commission_rate||''} onChange={e => setFormData({...formData, commission_rate:e.target.value})} className={inputCls} /></FormField>
