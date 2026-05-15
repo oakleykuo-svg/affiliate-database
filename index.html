@@ -736,7 +736,7 @@ const [conflictList, setConflictList] = useState([]); // 存放待審核的衝�
             
             // 處理歷史業績格式
             const performanceText = Array.isArray(d.performance_history) 
-              ? d.performance_history.map(p => `${p.date} | ${p.amount} | ${p.note}`).join('\n')
+              ? d.performance_history.map(p => `${p.item || p.date || ''} | ${p.amount} | ${p.note}`).join('\n')
               : (d.performance_history || '');
 
             return [
@@ -1495,15 +1495,15 @@ const [conflictList, setConflictList] = useState([]); // 存放待審核的衝�
                         <table className="w-full text-sm text-left">
                           <thead>
                             <tr className="bg-slate-100/50 text-slate-400 text-[10px] uppercase">
-                              <th className="px-4 py-2 font-black">時間</th>
+                              <th className="px-4 py-2 font-black">團購項目</th>
                               <th className="px-4 py-2 font-black">業績金額</th>
-                              <th className="px-4 py-2 font-black">活動備註</th>
+                              <th className="px-4 py-2 font-black">備註數據</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100 bg-white">
-                            {([...data.performance_history]).sort((a,b) => b.date.localeCompare(a.date)).map((history, idx) => (
+                            {([...data.performance_history]).map((history, idx) => (
                               <tr key={idx} className="hover:bg-amber-50/30 transition-colors">
-                                <td className="px-4 py-3 text-slate-500 font-bold">{history.date}</td>
+                                <td className="px-4 py-3 text-slate-700 font-bold">{history.item || history.date || '-'}</td>
                                 <td className="px-4 py-3 text-amber-600 font-black">${parseInt(history.amount).toLocaleString()}</td>
                                 <td className="px-4 py-3 text-slate-500">{history.note}</td>
                               </tr>
@@ -1827,11 +1827,11 @@ const [conflictList, setConflictList] = useState([]); // 存放待審核的衝�
             payload.performance_history = payload.performance_history.split('\n').map(line => {
               const parts = line.split('|').map(s => s.trim());
               return { 
-                date: parts[0] || '', 
+                item: parts[0] || '', 
                 amount: parseInt(String(parts[1]).replace(/\D/g, '')) || 0, 
                 note: parts[2] || '' 
               };
-            }).filter(item => item.date || item.amount);
+            }).filter(item => item.item || item.amount);
           }
           
           // 回填至舊有的單行欄位以維持相容性
@@ -2111,14 +2111,14 @@ const [conflictList, setConflictList] = useState([]); // 存放待審核的衝�
                         </div>
                       </FormField>
 
-                      <FormField label="歷史帶貨業績" hint="格式：2025/11 | 500000 | 備註 (數字請寫純數字，不要有$或,等其他標示)" colSpan2>
+                      <FormField label="歷史帶貨業績" hint="格式：團購項目 | 業績金額 | 備註數據 (金額請寫純數字，不要有$或,)" colSpan2>
                         <textarea
                           className={`${inputCls} resize-y min-h-[100px] leading-relaxed`}
-                          placeholder="每行一筆，例如：&#10;2025/11 | 500000 | 雙11檔期&#10;2026/04 | 800000 | 母親節團"
+                          placeholder="每行一筆，例如：&#10;兒童奶粉（克寧）| 500000 | 售價800/賣出625組&#10;母嬰推車（Joie）| 800000 | 單價偏高但轉換率好"
                           value={typeof formData.performance_history === 'string' 
                             ? formData.performance_history 
                             : Array.isArray(formData.performance_history) 
-                              ? formData.performance_history.map(p => `${p.date} | ${p.amount} | ${p.note}`).join('\n')
+                              ? formData.performance_history.map(p => `${p.item || p.date || ''} | ${p.amount} | ${p.note || ''}`).join('\n')
                               : ''}
                           onChange={(e) => setFormData({ ...formData, performance_history: e.target.value })}
                         />
