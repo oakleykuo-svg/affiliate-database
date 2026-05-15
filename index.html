@@ -1495,15 +1495,15 @@ const [conflictList, setConflictList] = useState([]); // 存放待審核的衝�
                         <table className="w-full text-sm text-left">
                           <thead>
                             <tr className="bg-slate-100/50 text-slate-400 text-[10px] uppercase">
-                              <th className="px-4 py-2 font-black">團購項目</th>
-                              <th className="px-4 py-2 font-black">業績金額</th>
-                              <th className="px-4 py-2 font-black">備註數據</th>
+                              <th className="px-4 py-2 font-black whitespace-nowrap">團購項目</th>
+                              <th className="px-4 py-2 font-black whitespace-nowrap">業績金額</th>
+                              <th className="px-4 py-2 font-black whitespace-nowrap">備註數據</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100 bg-white">
                             {([...data.performance_history]).map((history, idx) => (
                               <tr key={idx} className="hover:bg-amber-50/30 transition-colors">
-                                <td className="px-4 py-3 text-slate-700 font-bold">{history.item || history.date || '-'}</td>
+                                <td className="px-4 py-3 text-slate-700 font-bold whitespace-nowrap">{history.item || history.date || '-'}</td>
                                 <td className="px-4 py-3 text-amber-600 font-black">${parseInt(history.amount).toLocaleString()}</td>
                                 <td className="px-4 py-3 text-slate-500">{history.note}</td>
                               </tr>
