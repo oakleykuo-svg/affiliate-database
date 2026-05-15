@@ -2111,10 +2111,10 @@ const [conflictList, setConflictList] = useState([]); // 存放待審核的衝�
                         </div>
                       </FormField>
 
-                      <FormField label="歷史帶貨業績" hint="格式：團購項目 | 業績金額 | 備註數據 (金額請寫純數字，不要有$或,)" colSpan2>
+                      <FormField label="歷史帶貨業績" hint="格式：團購項目 | 業績金額 | 備註數據 （備註內請用 / 分隔，金額寫純數字）" colSpan2>
                         <textarea
                           className={`${inputCls} resize-y min-h-[100px] leading-relaxed`}
-                          placeholder="每行一筆，例如：&#10;兒童奶粉（克寧）| 500000 | 售價800/賣出625組&#10;母嬰推車（Joie）| 800000 | 單價偏高但轉換率好"
+                          placeholder="每行一筆，例如：&#10;兒童奶粉（克寧）| 500000 | 售價800/賣出625組&#10;CRV core | 36623 | CR 5.4% / 36單"
                           value={typeof formData.performance_history === 'string' 
                             ? formData.performance_history 
                             : Array.isArray(formData.performance_history) 
