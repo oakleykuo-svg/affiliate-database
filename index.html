@@ -1446,7 +1446,7 @@ const [conflictList, setConflictList] = useState([]); // 存放待審核的衝�
 
       return (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-[60] flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white/95 backdrop-blur-2xl border border-white rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-[0_24px_80px_rgba(0,0,0,0.12)] relative no-scrollbar animate-zoom-in">
+          <div className="bg-white/95 backdrop-blur-2xl border border-white rounded-3xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-[0_24px_80px_rgba(0,0,0,0.12)] relative no-scrollbar animate-zoom-in">
             <div className="sidebar-top-accent rounded-t-3xl" />
             <div className="sticky top-0 p-4 flex justify-end gap-2 bg-gradient-to-b from-white/95 to-transparent z-10 pointer-events-none">
               <div className="pointer-events-auto flex gap-2">
@@ -1492,18 +1492,18 @@ const [conflictList, setConflictList] = useState([]); // 存放待審核的衝�
                       {!data.performance_history || data.performance_history.length === 0 ? (
                         <p className="text-sm text-slate-400 italic text-center py-5">尚無歷史業績紀錄</p>
                       ) : (
-                        <table className="w-full text-sm text-left">
+                        <table className="w-full text-sm text-left table-fixed">
                           <thead>
                             <tr className="bg-slate-100/50 text-slate-400 text-[10px] uppercase">
-                              <th className="px-4 py-2 font-black whitespace-nowrap">團購項目</th>
-                              <th className="px-4 py-2 font-black whitespace-nowrap">業績金額</th>
-                              <th className="px-4 py-2 font-black whitespace-nowrap">備註數據</th>
+                              <th className="px-4 py-2 font-black whitespace-nowrap w-[35%]">團購項目</th>
+                              <th className="px-4 py-2 font-black whitespace-nowrap w-[25%]">業績金額</th>
+                              <th className="px-4 py-2 font-black w-[40%]">備註數據</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100 bg-white">
                             {([...data.performance_history]).map((history, idx) => (
                               <tr key={idx} className="hover:bg-amber-50/30 transition-colors">
-                                <td className="px-4 py-3 text-slate-700 font-bold whitespace-nowrap">{history.item || history.date || '-'}</td>
+                                <td className="px-4 py-3 text-slate-700 font-bold">{history.item || history.date || '-'}</td>
                                 <td className="px-4 py-3 text-amber-600 font-black">${parseInt(history.amount).toLocaleString()}</td>
                                 <td className="px-4 py-3 text-slate-500">{history.note}</td>
                               </tr>
