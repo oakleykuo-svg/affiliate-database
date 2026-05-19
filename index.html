@@ -736,7 +736,7 @@ const [conflictList, setConflictList] = useState([]); // 存放待審核的衝�
             
             // 處理歷史業績格式
             const performanceText = Array.isArray(d.performance_history) 
-              ? d.performance_history.map(p => `${p.item || p.date || ''} | ${p.amount} | ${p.note}`).join('\n')
+              ? d.performance_history.map(p => `${p.item || p.date || ''} | ${p.amount} | ${p.conversion_rate || ''} | ${p.note}`).join('\n')
               : (d.performance_history || '');
 
             return [
@@ -1299,9 +1299,12 @@ const [conflictList, setConflictList] = useState([]); // 存放待審核的衝�
           <div className="flex gap-2 mb-3">
             <div className="bg-slate-50/80 w-full rounded-2xl p-2 border border-slate-100 flex flex-col justify-between">
               <div className="flex justify-evenly px-1 mb-1 mt-0.5">
-                <div className="text-center w-full"><div className="text-[9px] text-slate-400 font-black uppercase tracking-wider mb-0.5">分潤</div><div className={`font-black text-sm ${(!data?.commission_rate || data.commission_rate==='無') ? 'text-slate-400' : 'grad-brand'}`}>{data?.commission_rate||'-'}</div></div>
+                <div className="text-center w-full"><div className="text-[9px] text-slate-400 font-black uppercase tracking-wider mb-0.5">分潤</div><div className={`font-black text-sm ${(!data?.commission_rate || data.commission_rate==='無') ?
+'text-slate-400' : 'grad-brand'}`}>{data?.commission_rate||'-'}</div></div>
                 <div className="w-px h-6 bg-slate-200 mx-2 self-center"></div>
                 <div className="text-center w-full"><div className="text-[9px] text-slate-400 font-black uppercase tracking-wider mb-0.5">保底</div><div className="font-black text-sm text-slate-700">{data?.base_fee||'-'}</div></div>
+                <div className="w-px h-6 bg-slate-200 mx-2 self-center"></div>
+                <div className="text-center w-full"><div className="text-[9px] text-slate-400 font-black uppercase tracking-wider mb-0.5">最新CR</div><div className="font-black text-sm text-emerald-600">{(() => { const hist = data?.performance_history; if (!Array.isArray(hist) || hist.length === 0) return '-'; for (let i = hist.length - 1; i >= 0; i--) { if (hist[i].conversion_rate && hist[i].conversion_rate.trim() !== '') return hist[i].conversion_rate; } return '-'; })()}</div></div>
               </div>
               <div className={`text-[9px] font-bold text-center pt-1 border-t border-slate-100 ${quoteOutdated ? 'text-red-500' : 'text-slate-400'}`}>報價更新: {data?.quote_updated_date||'未紀錄'} {quoteOutdated && '⚠️'}</div>
             </div>
@@ -1495,9 +1498,10 @@ const [conflictList, setConflictList] = useState([]); // 存放待審核的衝�
                         <table className="w-full text-sm text-left table-fixed">
                           <thead>
                             <tr className="bg-slate-100/50 text-slate-400 text-[10px] uppercase">
-                              <th className="px-4 py-2 font-black whitespace-nowrap w-[35%]">團購項目</th>
-                              <th className="px-4 py-2 font-black whitespace-nowrap w-[25%]">業績金額</th>
-                              <th className="px-4 py-2 font-black w-[40%]">備註數據</th>
+                              <th className="px-4 py-2 font-black whitespace-nowrap w-[30%]">團購項目</th>
+                              <th className="px-4 py-2 font-black whitespace-nowrap w-[20%]">業績金額</th>
+                              <th className="px-4 py-2 font-black whitespace-nowrap w-[15%]">轉換率</th>
+                              <th className="px-4 py-2 font-black w-[35%]">備註數據</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100 bg-white">
@@ -1505,6 +1509,7 @@ const [conflictList, setConflictList] = useState([]); // 存放待審核的衝�
                               <tr key={idx} className="hover:bg-amber-50/30 transition-colors">
                                 <td className="px-4 py-3 text-slate-700 font-bold">{history.item || history.date || '-'}</td>
                                 <td className="px-4 py-3 text-amber-600 font-black">${parseInt(history.amount).toLocaleString()}</td>
+                                <td className="px-4 py-3 text-emerald-600 font-black">{history.conversion_rate || '-'}</td>
                                 <td className="px-4 py-3 text-slate-500">{history.note}</td>
                               </tr>
                             ))}
@@ -1829,7 +1834,8 @@ const [conflictList, setConflictList] = useState([]); // 存放待審核的衝�
               return { 
                 item: parts[0] || '', 
                 amount: parseInt(String(parts[1]).replace(/\D/g, '')) || 0, 
-                note: parts[2] || '' 
+                conversion_rate: parts[2] || '',
+                note: parts[3] || '' 
               };
             }).filter(item => item.item || item.amount);
           }
@@ -2111,14 +2117,14 @@ const [conflictList, setConflictList] = useState([]); // 存放待審核的衝�
                         </div>
                       </FormField>
 
-                      <FormField label="歷史帶貨業績" hint="格式：團購項目 | 業績金額 | 備註數據 （備註內請用 / 分隔，金額寫純數字）" colSpan2>
+                      <FormField label="歷史帶貨業績" hint="格式：團購項目 | 業績金額 | 轉換率 | 備註數據 （轉換率填 % 數字如 5.2%，備註內請用 / 分隔，金額寫純數字）" colSpan2>
                         <textarea
                           className={`${inputCls} resize-y min-h-[100px] leading-relaxed`}
-                          placeholder="每行一筆，例如：&#10;兒童奶粉（克寧）| 500000 | 售價800/賣出625組&#10;CRV core | 36623 | CR 5.4% / 36單"
+                          placeholder="每行一筆，例如：&#10;兒童奶粉（克寧）| 500000 | 5.2% | 售價800/賣出625組&#10;CRV core | 36623 | 4.8% | 36單"
                           value={typeof formData.performance_history === 'string' 
                             ? formData.performance_history 
                             : Array.isArray(formData.performance_history) 
-                              ? formData.performance_history.map(p => `${p.item || p.date || ''} | ${p.amount} | ${p.note || ''}`).join('\n')
+                              ? formData.performance_history.map(p => `${p.item || p.date || ''} | ${p.amount} | ${p.conversion_rate || ''} | ${p.note || ''}`).join('\n')
                               : ''}
                           onChange={(e) => setFormData({ ...formData, performance_history: e.target.value })}
                         />
