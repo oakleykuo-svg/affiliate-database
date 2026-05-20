@@ -839,6 +839,23 @@ return [
               last_updated_date: new Date().toISOString()
             };
 
+            // 💡 將純文字格式的 performance_history 轉換為 JSONB 陣列
+            if (typeof payload.performance_history === 'string' && payload.performance_history.trim()) {
+              payload.performance_history = payload.performance_history
+                .split('\n')
+                .map(line => {
+                  const parts = line.split('|').map(s => s.trim());
+                  return {
+                    item: parts[0] || '',
+                    amount: parseInt(String(parts[1] || '').replace(/\D/g, ''), 10) || 0,
+                    note: parts[2] || ''
+                  };
+                })
+                .filter(item => item.item || item.amount);
+            } else if (!Array.isArray(payload.performance_history)) {
+              payload.performance_history = [];
+            }
+
             if (_isUpdate && _realDbId) {
               // 智慧合併：只挑出「有填字」的欄位更新，保護舊有正確資料
               const safePayload = {};
