@@ -719,7 +719,7 @@ const [conflictList, setConflictList] = useState([]); // 存放待審核的衝�
           // 💡 純淨版 CSV 匯出邏輯 (共 13 個欄位，無頭像)
           // ==========================================
           const headers = [
-            "網紅姓名", "followers(最高粉絲數)", "instagram",
+  "網紅姓名", "Tier", "followers(最高粉絲數)", "instagram",
             "facebook", "youtube", "Email",
             "合作類型", "合作模式 Tags",
             "參考合作貼文/連結", "額外曝光管道",
@@ -739,9 +739,19 @@ const [conflictList, setConflictList] = useState([]); // 存放待審核的衝�
               ? d.performance_history.map(p => `${p.item || p.date || ''} | ${p.amount} | ${p.conversion_rate || ''} | ${p.note}`).join('\n')
               : (d.performance_history || '');
 
-            return [
-              escapeCSV(d.name),
-              escapeCSV(d.followers || 0),
+            const exportTierLabel = (() => {
+  const num = parseInt(d.followers, 10) || 0;
+  if (num >= 300000) return 'Top Tier';
+  if (num >= 150000) return 'Mega';
+  if (num >= 50000) return 'Macro';
+  if (num >= 10000) return 'Micro';
+  return 'Nano';
+})();
+
+return [
+  escapeCSV(d.name),
+  escapeCSV(exportTierLabel),
+  escapeCSV(d.followers || 0),
               escapeCSV(d.instagram_url || (parsedSocials['Instagram']?.[0] || '')),
               escapeCSV(d.facebook_url || (parsedSocials['Facebook']?.[0] || '')),
               escapeCSV(d.youtube_url || (parsedSocials['YouTube']?.[0] || '')),
