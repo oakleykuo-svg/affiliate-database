@@ -848,7 +848,8 @@ return [
                   return {
                     item: parts[0] || '',
                     amount: parseInt(String(parts[1] || '').replace(/\D/g, ''), 10) || 0,
-                    note: parts[2] || ''
+                    cr: parts[2] || '',
+                    note: parts[3] || ''
                   };
                 })
                 .filter(item => item.item || item.amount);
@@ -1864,7 +1865,7 @@ return [
               return { 
                 item: parts[0] || '', 
                 amount: parseInt(String(parts[1]).replace(/\D/g, '')) || 0, 
-                conversion_rate: parts[2] || '',
+                cr: parts[2] || '',
                 note: parts[3] || '' 
               };
             }).filter(item => item.item || item.amount);
@@ -2154,7 +2155,7 @@ return [
                           value={typeof formData.performance_history === 'string' 
                             ? formData.performance_history 
                             : Array.isArray(formData.performance_history) 
-                              ? formData.performance_history.map(p => `${p.item || p.date || ''} | ${p.amount} | ${p.conversion_rate || ''} | ${p.note || ''}`).join('\n')
+                              ? formData.performance_history.map(p => `${p.item || p.date || ''} | ${p.amount} | ${p.cr || ''} | ${p.note || ''}`).join('\n')
                               : ''}
                           onChange={(e) => setFormData({ ...formData, performance_history: e.target.value })}
                         />
