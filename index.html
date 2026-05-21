@@ -1876,14 +1876,14 @@ return [
           // 💡 將純文字轉為陣列：在存檔的這一刻，才把剛剛打的文字安全切開成 JSON 格式
           if (typeof payload.performance_history === 'string') {
             payload.performance_history = payload.performance_history.split('\n').map(line => {
-              const parts = line.split('|').map(s => s.trim());
-              return { 
-                item: parts[0] || '', 
-                amount: parseInt(String(parts[1]).replace(/\D/g, '')) || 0, 
-                conversion_rate: parts[2] || '',
-                note: parts[3] || '' 
-              };
-            }).filter(item => item.item || item.amount);
+  const parts = line.split('|').map(s => s.trim());
+  return { 
+    item: parts[0] || '', 
+    amount: parseInt(String(parts[1]).replace(/\D/g, '')) || 0, 
+    conversion_rate: parts[2] || '',
+    note: parts[3] || '' 
+  };
+}).filter(item => item.item || item.amount);
           }
           
           // 回填至舊有的單行欄位以維持相容性
