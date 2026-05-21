@@ -1352,12 +1352,12 @@ return [
   平均CR
   <Icon name="info" size={11} className="text-brand" />
 </div>
-  <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-56 p-2.5 bg-slate-900 text-white text-[10px] rounded-xl opacity-0 group-hover/cr:opacity-100 transition-opacity pointer-events-none shadow-xl z-30 font-medium leading-relaxed text-left">
-    💡 CR 常見算法：<br/>
-    成交數 ÷ 點擊連結人數（分潤/導購）<br/>
-    成交數 ÷ 觸及或觀看人數（直播團購）<br/>
-    <span className="text-slate-400 mt-1 block">各筆基準可能不同，建議可於備註說明。</span>
-  </div>
+  <div className="absolute right-0 bottom-full mb-2 w-56 p-2.5 bg-slate-900 text-white text-[10px] rounded-xl opacity-0 group-hover/cr:opacity-100 transition-opacity pointer-events-none shadow-xl z-30 font-medium leading-relaxed text-left">
+  💡 常見算法：<br/>
+  成交數 ÷ 點擊連結人數（分潤/導購）<br/>
+  成交數 ÷ 觸及或觀看人數（直播團購）<br/>
+  <span className="text-slate-400 mt-1 block">各筆基準可能不同，建議可於備註說明。</span>
+</div>
 </div><div className="font-black text-sm text-emerald-600">{(() => {
   const hist = data?.performance_history;
   if (!Array.isArray(hist) || hist.length === 0) return '-';
