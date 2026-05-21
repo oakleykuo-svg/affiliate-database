@@ -1884,7 +1884,14 @@ return [
     note: parts[3] || '' 
   };
 }).filter(item => item.item || item.amount);
-          }
+          } else if (Array.isArray(payload.performance_history)) {
+  payload.performance_history = payload.performance_history
+    .map(row => ({
+      ...row,
+      amount: parseInt(String(row.amount || '').replace(/\D/g, '')) || 0,
+    }))
+    .filter(row => row.item || row.amount);
+}
           
           // 回填至舊有的單行欄位以維持相容性
           payload.instagram_url = (otherSocialsObj['Instagram'] && otherSocialsObj['Instagram'][0]) || '';
@@ -2163,18 +2170,45 @@ return [
                         </div>
                       </FormField>
 
-                      <FormField label="歷史帶貨業績" hint="格式：團購項目 | 業績金額 | 轉換率 | 備註數據 （金額寫純數字。轉換率填％數字，無請填0。備註內請用/分隔）" colSpan2>
-                        <textarea
-                          className={`${inputCls} resize-y min-h-[100px] leading-relaxed`}
-                          placeholder="每行一筆，例如：&#10;兒童奶粉（克寧）| 500000 | 5.2% | 售價800/賣出625組&#10;CRV core | 36623 | 4.8% | 36單"
-                          value={typeof formData.performance_history === 'string' 
-                            ? formData.performance_history 
-                            : Array.isArray(formData.performance_history) 
-                              ? formData.performance_history.map(p => `${p.item || p.date || ''} | ${p.amount} | ${p.conversion_rate || ''} | ${p.note || ''}`).join('\n')
-                              : ''}
-                          onChange={(e) => setFormData({ ...formData, performance_history: e.target.value })}
-                        />
-                      </FormField>
+                      <FormField label="歷史帶貨業績" colSpan2>
+  <div className="space-y-2">
+    <div className="grid grid-cols-[2fr_1.5fr_1fr_2fr_auto] gap-2 px-1">
+      <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">團購項目</span>
+      <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">業績金額</span>
+      <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">轉換率</span>
+      <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">備註數據</span>
+      <span></span>
+    </div>
+
+    {(Array.isArray(formData.performance_history) ? formData.performance_history : []).map((row, idx) => (
+      <div key={idx} className="grid grid-cols-[2fr_1.5fr_1fr_2fr_auto] gap-2 items-center animate-fade-in">
+        <input type="text" placeholder="例：2025 V D11" value={row.item || ''}
+          onChange={e => { const u = [...formData.performance_history]; u[idx] = {...u[idx], item: e.target.value}; setFormData({...formData, performance_history: u}); }}
+          className={inputCls} />
+        <input type="text" placeholder="例：183177" value={row.amount || ''}
+          onChange={e => { const u = [...formData.performance_history]; u[idx] = {...u[idx], amount: e.target.value}; setFormData({...formData, performance_history: u}); }}
+          className={inputCls} />
+        <input type="text" placeholder="例：10.23%" value={row.conversion_rate || ''}
+          onChange={e => { const u = [...formData.performance_history]; u[idx] = {...u[idx], conversion_rate: e.target.value}; setFormData({...formData, performance_history: u}); }}
+          className={inputCls} />
+        <input type="text" placeholder="例：155單" value={row.note || ''}
+          onChange={e => { const u = [...formData.performance_history]; u[idx] = {...u[idx], note: e.target.value}; setFormData({...formData, performance_history: u}); }}
+          className={inputCls} />
+        <button type="button"
+          onClick={() => setFormData({...formData, performance_history: formData.performance_history.filter((_, i) => i !== idx)})}
+          className="p-2.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors border border-transparent hover:border-red-100">
+          <Icon name="trash" size={15} />
+        </button>
+      </div>
+    ))}
+
+    <button type="button"
+      onClick={() => setFormData({...formData, performance_history: [...(Array.isArray(formData.performance_history) ? formData.performance_history : []), { item: '', amount: '', conversion_rate: '', note: '' }]})}
+      className="w-full py-2.5 border-2 border-dashed border-slate-200 hover:border-brand/40 hover:bg-brand/5 text-slate-400 hover:text-brand rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-1.5">
+      <Icon name="plus" size={14} strokeWidth={3} /> 新增一筆業績
+    </button>
+  </div>
+</FormField>
 
                       <FormField label="預計分潤比率"><input type="text" value={formData.commission_rate||''} onChange={e => setFormData({...formData, commission_rate:e.target.value})} className={inputCls} /></FormField>
                       <FormField label="保底費用"><input type="text" value={formData.base_fee||''} onChange={e => setFormData({...formData, base_fee:e.target.value})} className={inputCls} /></FormField>
