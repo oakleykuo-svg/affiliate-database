@@ -1348,7 +1348,10 @@ return [
                 <div className="text-center w-full"><div className="text-[9px] text-slate-400 font-black uppercase tracking-wider mb-0.5">保底</div><div className="font-black text-sm text-slate-700">{displayVal(data?.base_fee)}</div></div>
                 <div className="w-px h-6 bg-slate-200 mx-2 self-center"></div>
                 <div className="text-center w-full"><div className="relative group/cr cursor-help">
-  <div className="text-[9px] text-slate-400 font-black uppercase tracking-wider mb-0.5">平均CR ⓘ</div>
+  <div className="text-[9px] text-slate-400 font-black uppercase tracking-wider mb-0.5 flex items-center justify-center gap-0.5">
+  平均CR
+  <Icon name="info" size={11} className="text-brand" />
+</div>
   <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-56 p-2.5 bg-slate-900 text-white text-[10px] rounded-xl opacity-0 group-hover/cr:opacity-100 transition-opacity pointer-events-none shadow-xl z-30 font-medium leading-relaxed text-left">
     💡 CR 常見算法：<br/>
     成交訂單數 ÷ 點擊連結人數（分潤/導購）<br/>
@@ -1563,7 +1566,18 @@ return [
                             <tr className="bg-slate-100/50 text-slate-400 text-[9px] uppercase">
                               <th className="px-3 py-2 font-black w-[28%]">團購項目</th>
                               <th className="px-3 py-2 font-black text-center w-[22%]">業績金額</th>
-                              <th className="px-3 py-2 font-black text-center w-[20%]">轉換率</th>
+                              <th className="px-3 py-2 font-black text-center w-[20%]">
+  <div className="flex items-center justify-center gap-1 group/cr relative">
+    轉換率
+    <Icon name="info" size={11} className="text-brand cursor-help" />
+    <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-56 p-2.5 bg-slate-900 text-white text-[10px] rounded-xl opacity-0 group-hover/cr:opacity-100 transition-opacity pointer-events-none shadow-xl z-30 font-medium leading-relaxed text-left normal-case tracking-normal">
+      💡 常見算法：<br/>
+      成交訂單數 ÷ 點擊連結人數（分潤/導購）<br/>
+      成交訂單數 ÷ 觸及或觀看人數（直播團購）<br/>
+      <span className="text-slate-400 mt-1 block">各筆基準可能不同，建議可於備註說明。</span>
+    </div>
+  </div>
+</th>
                               <th className="px-3 py-2 font-black text-center w-[30%]">備註數據</th>
                             </tr>
                           </thead>
@@ -1574,7 +1588,7 @@ return [
                                 <tr key={idx} className={`transition-colors ${isZero ? 'opacity-40 bg-slate-50' : 'hover:bg-amber-50/30'}`}>
                                   <td className="px-3 py-2.5 text-[11px] text-slate-700 font-bold">{history.item || history.date || '-'}{isZero && <span className="ml-1.5 text-[9px] text-slate-400 font-normal">（未確認）</span>}</td>
                                   <td className="px-3 py-2.5 text-[11px] text-amber-600 font-black text-center">${parseInt(history.amount || 0).toLocaleString()}</td>
-                                  <td className="px-3 py-2.5 text-[11px] text-emerald-600 font-black text-center">{history.conversion_rate || '-'}</td>
+                                  <td className="px-3 py-2.5 text-[11px] text-brand font-black text-center">{history.conversion_rate || '-'}</td>
                                   <td className="px-3 py-2.5 text-[11px] text-slate-500 text-center">{history.note || '-'}</td>
                                 </tr>
                               );
