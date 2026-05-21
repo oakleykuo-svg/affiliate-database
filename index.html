@@ -1347,7 +1347,15 @@ return [
                 <div className="w-px h-6 bg-slate-200 mx-2 self-center"></div>
                 <div className="text-center w-full"><div className="text-[9px] text-slate-400 font-black uppercase tracking-wider mb-0.5">保底</div><div className="font-black text-sm text-slate-700">{displayVal(data?.base_fee)}</div></div>
                 <div className="w-px h-6 bg-slate-200 mx-2 self-center"></div>
-                <div className="text-center w-full"><div className="text-[9px] text-slate-400 font-black uppercase tracking-wider mb-0.5">平均CR</div><div className="font-black text-sm text-emerald-600">{(() => {
+                <div className="text-center w-full"><div className="relative group/cr cursor-help">
+  <div className="text-[9px] text-slate-400 font-black uppercase tracking-wider mb-0.5">平均CR ⓘ</div>
+  <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-56 p-2.5 bg-slate-900 text-white text-[10px] rounded-xl opacity-0 group-hover/cr:opacity-100 transition-opacity pointer-events-none shadow-xl z-30 font-medium leading-relaxed text-left">
+    💡 CR 常見算法：<br/>
+    成交訂單數 ÷ 點擊連結人數（分潤/導購）<br/>
+    成交訂單數 ÷ 觸及或觀看人數（直播團購）<br/>
+    <span className="text-slate-400 mt-1 block">各筆基準可能不同，建議可於備註說明。</span>
+  </div>
+</div><div className="font-black text-sm text-emerald-600">{(() => {
   const hist = data?.performance_history;
   if (!Array.isArray(hist) || hist.length === 0) return '-';
   const validRows = hist.filter(p => 
@@ -2187,7 +2195,16 @@ return [
     <div className="grid grid-cols-[2fr_1.5fr_1fr_2fr_auto] gap-2 px-1">
       <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">團購項目</span>
       <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">業績金額</span>
-      <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">轉換率</span>
+      <div className="flex items-center gap-1 group/cr relative">
+  <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">轉換率</span>
+  <Icon name="info" size={11} className="text-slate-300 cursor-help" />
+  <div className="absolute left-0 bottom-full mb-2 w-60 p-3 bg-slate-900 text-white text-[10px] rounded-xl opacity-0 group-hover/cr:opacity-100 transition-opacity pointer-events-none shadow-xl z-30 font-medium leading-relaxed">
+    💡 常見算法：<br/>
+    成交訂單數 ÷ 點擊連結人數（分潤/導購）<br/>
+    成交訂單數 ÷ 觸及或觀看人數（直播團購）<br/>
+    <span className="text-slate-400 mt-1 block">各筆基準可能不同，建議可於備註說明。</span>
+  </div>
+</div>
       <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">備註數據</span>
       <span></span>
     </div>
