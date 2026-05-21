@@ -1347,7 +1347,19 @@ return [
                 <div className="w-px h-6 bg-slate-200 mx-2 self-center"></div>
                 <div className="text-center w-full"><div className="text-[9px] text-slate-400 font-black uppercase tracking-wider mb-0.5">保底</div><div className="font-black text-sm text-slate-700">{displayVal(data?.base_fee)}</div></div>
                 <div className="w-px h-6 bg-slate-200 mx-2 self-center"></div>
-                <div className="text-center w-full"><div className="text-[9px] text-slate-400 font-black uppercase tracking-wider mb-0.5">最新CR</div><div className="font-black text-sm text-emerald-600">{(() => { const hist = data?.performance_history; if (!Array.isArray(hist) || hist.length === 0) return '-'; for (let i = hist.length - 1; i >= 0; i--) { if (parseInt(hist[i].amount) > 0 && hist[i].conversion_rate && hist[i].conversion_rate.trim() !== '') return hist[i].conversion_rate; } return '-'; })()}</div></div>
+                <div className="text-center w-full"><div className="text-[9px] text-slate-400 font-black uppercase tracking-wider mb-0.5">平均CR</div><div className="font-black text-sm text-emerald-600">{(() => {
+  const hist = data?.performance_history;
+  if (!Array.isArray(hist) || hist.length === 0) return '-';
+  const validRows = hist.filter(p => 
+    parseInt(p.amount) > 0 && 
+    p.conversion_rate && 
+    p.conversion_rate.trim() !== '' &&
+    !isNaN(parseFloat(p.conversion_rate))
+  );
+  if (validRows.length === 0) return '-';
+  const avg = validRows.reduce((sum, p) => sum + parseFloat(p.conversion_rate), 0) / validRows.length;
+  return avg.toFixed(2) + '%';
+})()}</div></div>
               </div>
               <div className={`text-[9px] font-bold text-center pt-1 border-t border-slate-100 ${quoteOutdated ? 'text-red-500' : 'text-slate-400'}`}>最新報價時間: {displayVal(data?.quote_updated_date)} {quoteOutdated && '⚠️'}</div>
             </div>
