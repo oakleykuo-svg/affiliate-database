@@ -861,6 +861,15 @@ return [
               // 智慧合併：只挑出「有填字」的欄位更新，保護舊有正確資料
               const safePayload = {};
               Object.keys(payload).forEach(key => {
+                // 特例：performance_history 是空陣列時，視同沒填，不覆蓋舊資料
+                if (key === 'performance_history') {
+                  if (Array.isArray(payload[key]) && payload[key].length > 0) {
+                    safePayload[key] = payload[key];
+                  }
+                  return;
+                }
+                // 特例：followers 是 0 時，視同沒填，不覆蓋舊資料
+                if (key === 'followers' && payload[key] === 0) return;
                 if (payload[key] !== '' && payload[key] !== null && payload[key] !== undefined) {
                   safePayload[key] = payload[key];
                 }
