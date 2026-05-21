@@ -120,6 +120,12 @@
   <div id="root"></div>
 
   <script type="text/babel">
+    const displayVal = (val) => {
+  if (val === null || val === undefined) return '-';
+  const str = String(val).trim();
+  if (str === '' || str === '0' || str === '無' || str === '-' || str === '未填' || str === '未紀錄') return '-';
+  return str;
+};
     const SUPABASE_URL = 'https://jzovnoogedmnxxakggwk.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp6b3Zub29nZWRtbnh4YWtnZ3drIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1MDc3NjIsImV4cCI6MjA5MDA4Mzc2Mn0.BQmy-h4ICtxsbn-bE0uw2WOUb-0CsTl6Upc12R2VNH4';
     const isRealMode = SUPABASE_URL !== 'YOUR_SUPABASE_URL';
@@ -1336,14 +1342,14 @@ return [
           <div className="flex gap-2 mb-3">
             <div className="bg-slate-50/80 w-full rounded-2xl p-2 border border-slate-100 flex flex-col justify-between">
               <div className="flex justify-evenly px-1 mb-1 mt-0.5">
-                <div className="text-center w-full"><div className="text-[9px] text-slate-400 font-black uppercase tracking-wider mb-0.5">分潤</div><div className={`font-black text-sm ${(!data?.commission_rate || data.commission_rate==='無') ?
-'text-slate-400' : 'grad-brand'}`}>{data?.commission_rate||'-'}</div></div>
+                <div className="text-center w-full"><div className="text-[9px] text-slate-400 font-black uppercase tracking-wider mb-0.5">分潤</div><div className={`font-black text-sm ${displayVal(data?.commission_rate) === '-' ?
+'text-slate-400' : 'grad-brand'}`}>{displayVal(data?.commission_rate)}</div></div>
                 <div className="w-px h-6 bg-slate-200 mx-2 self-center"></div>
-                <div className="text-center w-full"><div className="text-[9px] text-slate-400 font-black uppercase tracking-wider mb-0.5">保底</div><div className="font-black text-sm text-slate-700">{data?.base_fee||'-'}</div></div>
+                <div className="text-center w-full"><div className="text-[9px] text-slate-400 font-black uppercase tracking-wider mb-0.5">保底</div><div className="font-black text-sm text-slate-700">{displayVal(data?.base_fee)}</div></div>
                 <div className="w-px h-6 bg-slate-200 mx-2 self-center"></div>
                 <div className="text-center w-full"><div className="text-[9px] text-slate-400 font-black uppercase tracking-wider mb-0.5">最新CR</div><div className="font-black text-sm text-emerald-600">{(() => { const hist = data?.performance_history; if (!Array.isArray(hist) || hist.length === 0) return '-'; for (let i = hist.length - 1; i >= 0; i--) { if (parseInt(hist[i].amount) > 0 && hist[i].conversion_rate && hist[i].conversion_rate.trim() !== '') return hist[i].conversion_rate; } return '-'; })()}</div></div>
               </div>
-              <div className={`text-[9px] font-bold text-center pt-1 border-t border-slate-100 ${quoteOutdated ? 'text-red-500' : 'text-slate-400'}`}>最新報價時間: {data?.quote_updated_date||'未紀錄'} {quoteOutdated && '⚠️'}</div>
+              <div className={`text-[9px] font-bold text-center pt-1 border-t border-slate-100 ${quoteOutdated ? 'text-red-500' : 'text-slate-400'}`}>最新報價時間: {displayVal(data?.quote_updated_date)} {quoteOutdated && '⚠️'}</div>
             </div>
           </div>
 
@@ -1521,9 +1527,9 @@ return [
                   <div>
                     <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.12em] mb-3">Commercial Quote</h3>
                     <div className="bg-slate-50 rounded-2xl p-5 space-y-4 border border-slate-100">
-                      <div className="flex justify-between items-center"><span className="text-slate-500 text-sm font-bold">預計分潤</span><span className="font-black text-lg grad-brand">{data.commission_rate||'無'}</span></div>
-                      <div className="flex justify-between items-center"><span className="text-slate-500 text-sm font-bold">保底費用</span><span className="font-black text-lg text-slate-800">{data.base_fee||'無'}</span></div>
-                      <div className="pt-3 border-t border-slate-200 flex justify-between items-center"><span className="text-xs text-slate-400 font-bold">最新報價時間</span><span className={`text-xs font-black px-2.5 py-1 rounded-lg ${quoteOutdated ? 'bg-red-100 text-red-600' : 'bg-slate-200 text-slate-600'}`}>{data.quote_updated_date||'未填'} {quoteOutdated && '⚠️'}</span></div>
+                      <div className="flex justify-between items-center"><span className="text-slate-500 text-sm font-bold">預計分潤</span><span className="font-black text-lg grad-brand">{displayVal(data.commission_rate)}</span></div>
+                      <div className="flex justify-between items-center"><span className="text-slate-500 text-sm font-bold">保底費用</span><span className="font-black text-lg text-slate-800">{displayVal(data.base_fee)}</span></div>
+                      <div className="pt-3 border-t border-slate-200 flex justify-between items-center"><span className="text-xs text-slate-400 font-bold">最新報價時間</span><span className={`text-xs font-black px-2.5 py-1 rounded-lg ${quoteOutdated ? 'bg-red-100 text-red-600' : 'bg-slate-200 text-slate-600'}`}>{displayVal(data.quote_updated_date)} {quoteOutdated && '⚠️'}</span></div>
                     </div>
                   </div>
                   <div>
