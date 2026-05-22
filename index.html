@@ -2409,25 +2409,40 @@ return [
         try {
           // 1. 拔除暫存區標籤
           const { id, created_at, ...cleanIncoming } = incoming;
-          const payload = { ...cleanIncoming, last_updated_date: new Date().toISOString() };
-          
-          if (action === 'merge') {
-            // 💡 智慧安全合併：只挑出「有填寫內容」的欄位來更新
-            const safePayload = {};
-            Object.keys(payload).forEach(key => {
-              if (payload[key] !== '' && payload[key] !== null && payload[key] !== undefined) {
-                safePayload[key] = payload[key];
-              }
-            });
+const payload = { ...cleanIncoming, last_updated_date: new Date().toISOString() };
 
-            // 執行安全覆蓋，不影響舊資料中已存在的其他資訊
-            const { error } = await supabase.from('influencers').update(safePayload).eq('id', existingId);
-            if (error) throw error;
-          } else {
-            // 不同人：新增全新資料
-            const { error } = await supabase.from('influencers').insert([payload]);
-            if (error) throw error;
-          }
+// 💡 先統一轉換 performance_history，merge 和 ignore 兩條路都受保護
+if (typeof payload.performance_history === 'string' && payload.performance_history.trim()) {
+  payload.performance_history = payload.performance_history
+    .split('\n')
+    .map(line => {
+      const parts = line.split('|').map(s => s.trim());
+      return {
+        item: parts[0] || '',
+        amount: parseInt(String(parts[1] || '').replace(/\D/g, ''), 10) || 0,
+        conversion_rate: parts[2] || '',
+        note: parts[3] || ''
+      };
+    })
+    .filter(item => item.item || item.amount);
+} else if (!Array.isArray(payload.performance_history)) {
+  payload.performance_history = [];
+}
+
+if (action === 'merge') {
+  const safePayload = {};
+  Object.keys(payload).forEach(key => {
+    if (payload[key] !== '' && payload[key] !== null && payload[key] !== undefined) {
+      safePayload[key] = payload[key];
+    }
+  });
+  const { error } = await supabase.from('influencers').update(safePayload).eq('id', existingId);
+  if (error) throw error;
+} else {
+  // 不同人：新增全新資料
+  const { error } = await supabase.from('influencers').insert([payload]);
+  if (error) throw error;
+}
 
           // ✅ 成功後，直接使用 onHandled 呼叫父層去移除畫面上的這一筆
           onHandled(incoming.user_id);
