@@ -726,11 +726,12 @@ const [conflictList, setConflictList] = useState([]); // 存放待審核的衝�
           // ==========================================
           const headers = [
   "網紅姓名", "Tier", "followers(最高粉絲數)", "instagram",
-            "facebook", "youtube", "Email",
-            "合作類型", "合作模式 Tags",
-            "參考合作貼文/連結", "額外曝光管道",
-            "固定開團平台", "歷史開團成績", "備註"
-          ];
+  "facebook", "youtube", "Email",
+  "合作類型", "合作模式 Tags",
+  "預計分潤", "保底費用",
+  "參考合作貼文/連結", "額外曝光管道",
+  "固定開團平台", "歷史開團成績", "備註"
+];
 
           const escapeCSV = (str) => {
             if (str === null || str === undefined) return '""';
@@ -764,8 +765,10 @@ return [
               escapeCSV(d.email),
               escapeCSV(Array.isArray(d.category) ? d.category.join(', ') : (d.category || '')),
               escapeCSV(Array.isArray(d.collaboration_tags) ? d.collaboration_tags.join(', ') : (d.collaboration_tags || '')),
-              escapeCSV(d.reference_link),
-              escapeCSV(d.extra_platforms),
+              escapeCSV(d.commission_rate),
+escapeCSV(d.base_fee),
+escapeCSV(d.reference_link),
+escapeCSV(d.extra_platforms),
               escapeCSV(Array.isArray(d.promo_platforms) ? d.promo_platforms.join(', ') : (d.promo_platforms || '')),
               escapeCSV(performanceText),
               escapeCSV(d.notes)
