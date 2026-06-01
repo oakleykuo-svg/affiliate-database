@@ -559,9 +559,10 @@ const [conflictList, setConflictList] = useState([]); // 存放待審核的衝�
 
     // 8. 處理排序
     if (sortBy === 'newest') query = query.order('id', { ascending: false });
-    else if (sortBy === 'oldest') query = query.order('id', { ascending: true });
-    else if (sortBy === 'followers_desc') query = query.order('followers', { ascending: false });
-    else if (sortBy === 'followers_asc') query = query.order('followers', { ascending: true });
+else if (sortBy === 'oldest') query = query.order('id', { ascending: true });
+else if (sortBy === 'followers_desc') query = query.order('followers', { ascending: false });
+else if (sortBy === 'followers_asc') query = query.order('followers', { ascending: true });
+else if (sortBy === 'completeness') query = query.order('completeness_score', { ascending: false });
 
     // 9. 處理分頁 (單點模式核心)
     const from = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -1047,7 +1048,7 @@ escapeCSV(d.extra_platforms),
                   <input type="text" placeholder="搜尋網紅姓名或 @帳號..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-brand/25 focus:border-brand/50 shadow-sm text-sm transition-all" />
                 </div>
                 <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="p-3 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-brand/25 shadow-sm text-sm text-slate-600 font-bold cursor-pointer hidden md:block">
-                  <option value="newest">加入時間：新 → 舊</option><option value="oldest">加入時間：舊 → 新</option><option value="followers_desc">粉絲：高 → 低</option><option value="followers_asc">粉絲：低 → 高</option>
+                  <option value="newest">加入時間：新 → 舊</option><option value="oldest">加入時間：舊 → 新</option><option value="followers_desc">粉絲：高 → 低</option><option value="followers_asc">粉絲：低 → 高</option><option value="completeness">資料完整度：高 → 低</option>
                 </select>
                 <button id="tour-advanced" onClick={() => setShowAdvancedFilters(!showAdvancedFilters)} className={`p-3 rounded-xl transition-all border shrink-0 ${showAdvancedFilters ? 'bg-brand text-white border-brand shadow-glow' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50 shadow-sm'}`}>
                   <Icon name="sliders" size={16} />
