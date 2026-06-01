@@ -514,9 +514,10 @@ const [conflictList, setConflictList] = useState([]); // 存放待審核的衝�
   setIsLoading(true);
   try {
     // 1. 基本查詢：抓取 influencers 並要求回傳總筆數
-    let query = supabase
-      .from('influencers')
-      .select('*', { count: 'exact' });
+    const tableName = sortBy === 'completeness' ? 'influencers_with_score' : 'influencers';
+let query = supabase
+  .from(tableName)
+  .select('*', { count: 'exact' });
 
     // 2. 處理關鍵字搜尋 (姓名 或 IG帳號)
     if (searchTerm.trim()) {
