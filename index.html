@@ -563,9 +563,9 @@ let query = supabase
     // 8. 處理排序
     if (sortBy === 'newest') query = query.order('id', { ascending: false });
 else if (sortBy === 'oldest') query = query.order('id', { ascending: true });
-else if (sortBy === 'followers_desc') query = query.order('followers', { ascending: false });
-else if (sortBy === 'followers_asc') query = query.order('followers', { ascending: true });
-else if (sortBy === 'completeness') query = query.order('completeness_score', { ascending: false });
+else if (sortBy === 'followers_desc') query = query.order('followers', { ascending: false }).order('id', { ascending: true });
+else if (sortBy === 'followers_asc') query = query.order('followers', { ascending: true }).order('id', { ascending: true });
+else if (sortBy === 'completeness') query = query.order('completeness_score', { ascending: false }).order('id', { ascending: true });
 
     // 9. 處理分頁 (單點模式核心)
     const from = (currentPage - 1) * ITEMS_PER_PAGE;
