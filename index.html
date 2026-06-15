@@ -456,6 +456,7 @@ const [conflictList, setConflictList] = useState([]); // 存放待審核的衝�
         });
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
+          if (event === 'TOKEN_REFRESHED') return;
           setSession(newSession);
           if (newSession?.user?.email) {
             const currentEmail = newSession.user.email;
