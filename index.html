@@ -600,6 +600,7 @@ else if (sortBy === 'completeness') query = query.order('completeness_score', { 
         if (userRole === 'viewer') return alert('權限不足：您只能瀏覽資料。');
 
         const final = { ...newCreator, last_updated_date: new Date().toISOString() };
+        delete final.completeness_score; // 移除來自 influencers_with_score view 的計算欄位，不屬於主表
         
         try {
           if (isEditMode) {
